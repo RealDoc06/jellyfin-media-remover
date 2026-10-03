@@ -51,6 +51,8 @@ The DLL appears under `src/Jellyfin.Plugin.MediaRemover/bin/Release/<framework>/
 
 Compiler warnings are errors. Nullable reference types are enabled, and Jellyfin dependencies are compile-time references excluded from the release ZIP.
 
+Release builds omit debug symbols to keep local build paths out of the DLL. Debug builds retain symbols for local debugging. The packaging script rejects assemblies containing the local checkout path.
+
 ## Edit the interface
 
 - `Web/voting.js` and `Web/voting.css`: Home, voting browser, sidebar entry, native-menu actions.

@@ -30,6 +30,10 @@ def main():
         "--configuration", "Release", "-p:JellyfinVersion=" + args.jellyfin,
         "--output", str(output),
     ], check=True, cwd=ROOT)
+    assembly = output / "Jellyfin.Plugin.MediaRemover.dll"
+    assembly_bytes = assembly.read_bytes()
+    if any(str(ROOT).encode(encoding) in assembly_bytes for encoding in ("utf-8", "utf-16le")):
+        raise RuntimeError("The release assembly contains the local checkout path; refusing to package it.")
     manifest = {
         "category": "General", "changelog": "Advisory votes now cover movies, series, music, books, photos, collections, and playlists. Episode and season actions keep voting for the whole series. Admin movie removal now integrates Radarr and Seerr with preview, title confirmation, and resumable cleanup. Existing votes and Home preferences are preserved.",
         "description": "Advisory votes for library media, with movie and series progress and Radarr/Sonarr/Seerr removal.",
@@ -38,7 +42,7 @@ def main():
     }
     archive = ROOT / "artifacts" / ("media-remover-" + version + "-jellyfin-" + args.jellyfin + ".zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as package:
-        package.write(output / "Jellyfin.Plugin.MediaRemover.dll", "Jellyfin.Plugin.MediaRemover.dll")
+        package.write(assembly, "Jellyfin.Plugin.MediaRemover.dll")
         package.write(ROOT / "LICENSE", "LICENSE")
         package.writestr("meta.json", json.dumps(manifest, indent=2) + "\n")
     checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
