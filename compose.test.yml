@@ -1,0 +1,26 @@
+# Disposable integration environment. No live media, credentials, or services are used.
+services:
+  jellyfin:
+    image: ${JMR_TEST_IMAGE:?Use scripts/integration.py to select a Jellyfin version}
+    container_name: jmr-test-jellyfin
+    ports:
+      - "127.0.0.1:18966:8096"
+    volumes:
+      - ${JMR_TEST_DATA_DIR:?Use scripts/integration.py to select test data}/config:/config
+      - ${JMR_TEST_DATA_DIR}/cache:/cache
+      - ${JMR_TEST_DATA_DIR}/media:/media:ro
+      - ${JMR_TEST_DATA_DIR}/media-extra:/media-extra:ro
+      # Jellyfin writes the plugin manifest next to the assembly on startup.
+      - ${JMR_TEST_DATA_DIR}/plugin:/config/plugins/MediaRemover
+    networks: [integration]
+  providers:
+    image: python:3.13-alpine
+    container_name: jmr-test-providers
+    command: ["python", "/app/scripts/integration.py", "fixture"]
+    ports:
+      - "127.0.0.1:18967:18967"
+    volumes:
+      - ./scripts/integration.py:/app/scripts/integration.py:ro
+    networks: [integration]
+networks:
+  integration: {}

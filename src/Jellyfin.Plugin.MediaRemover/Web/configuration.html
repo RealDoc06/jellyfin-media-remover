@@ -1,0 +1,171 @@
+<div id="mediaRemoverPage" data-role="page" class="page type-interior pluginConfigurationPage fullWidthContent" data-controller="__plugin/mediaremoverjs" data-require="emby-input,emby-button,emby-checkbox">
+    <style>
+        /* Layout and state cues only: controls, surfaces and colors follow Jellyfin's theme. */
+        #mediaRemoverPage .mr-content { max-width: 80em; }
+        #mediaRemoverPage .mr-note { font-size: .9em; }
+        #mediaRemoverPage .mr-row { display: flex; align-items: center; flex-wrap: wrap; gap: .75em; }
+        #mediaRemoverPage .mr-between { justify-content: space-between; }
+        #mediaRemoverPage .mr-section { margin-top: 2em; }
+        #mediaRemoverPage .mr-filters { display: grid; grid-template-columns: minmax(12em, 1fr) auto; align-items: end; gap: .8em; margin: 1.5em 0; }
+        #mediaRemoverPage .mr-filters .inputContainer { margin-bottom: .3em; }
+        #mediaRemoverPage .mr-table-wrap { overflow-x: auto; margin-top: 1em; }
+        #mediaRemoverPage .detailTableHeaderCell, #mediaRemoverPage .detailTableBodyCell { padding: 1em; vertical-align: middle; }
+        #mediaRemoverPage .detailTableHeaderCell { white-space: nowrap; }
+        #mediaRemoverPage caption { text-align: left; padding: .8em 1em; }
+        #mediaRemoverPage .mr-year { margin-left: .6em; font-size: .9em; }
+        #mediaRemoverPage .mr-link { text-align: start; }
+        #mediaRemoverPage .mr-actions { display: flex; align-items: center; gap: .4em; white-space: nowrap; }
+        #mediaRemoverPage .mr-actions .emby-button { margin: 0; padding: .55em .85em; }
+        #mediaRemoverPage .emby-button:disabled { opacity: .5; cursor: default; }
+        #mediaRemoverPage .mr-names > * + * { margin-top: .35em; }
+        #mediaRemoverPage .mr-request-summary { line-height: 1.5; margin-bottom: 1.2em; }
+        #mediaRemoverPage .mr-pagination { margin-top: 1em; }
+        #mediaRemoverPage .mr-status { margin: .8em 0; min-height: 1.4em; overflow-wrap: anywhere; }
+        #mediaRemoverPage .mr-status:empty { display: none; }
+        #mediaRemoverPage .mr-error, #mediaRemoverPage .mr-warning, #mediaRemoverPage .mr-success { font-weight: 600; }
+        #mediaRemoverPage details > summary { cursor: pointer; padding: .2em 0; }
+        #mediaRemoverPage details > summary:focus-visible { outline: 2px solid currentColor; outline-offset: .2em; }
+        #mediaRemoverPage .mr-connections { display: grid; grid-template-columns: repeat(auto-fit, minmax(15em, 1fr)); gap: 1.5em; }
+        #mediaRemoverPage fieldset { border: 0; padding: 0; margin: 1.3em 0; min-width: 0; }
+        #mediaRemoverPage legend { font-weight: 600; margin-bottom: .8em; padding: 0; }
+        #mediaRemoverPage .checkboxContainer { margin-bottom: .65em; }
+        #mediaRemoverPage input:disabled + span, #mediaRemoverPage input:disabled + span + .checkboxOutline { opacity: .5; }
+        #mediaRemoverPage dialog { box-sizing: border-box; width: min(56em, calc(100% - 2em)); max-height: calc(100dvh - 3em); overflow-y: auto; color: inherit; margin: auto; padding: 1.5em; }
+        #mediaRemoverPage dialog::backdrop { background: rgb(0 0 0 / 50%); }
+        #mediaRemoverPage .mr-dialog-header { align-items: center; flex-wrap: nowrap; margin-bottom: 1em; }
+        #mediaRemoverPage .mr-dialog-header h2 { margin: 0; overflow-wrap: anywhere; }
+        #mediaRemoverPage .mr-dialog-header button { margin-left: auto; flex-shrink: 0; }
+        #mediaRemoverPage .mr-preview { margin-top: 1.5em; }
+        #mediaRemoverPage dl { display: grid; grid-template-columns: minmax(7em, auto) 1fr; gap: .6em 1em; line-height: 1.4; }
+        #mediaRemoverPage dd { margin: 0; overflow-wrap: anywhere; }
+        #mediaRemoverPage ul { padding-left: 1.3em; line-height: 1.5; }
+        #mediaRemoverPage .infoBanner ul { margin: 0; }
+        #mediaRemoverPage .mr-confirmation { margin: 1em 0; }
+        #mediaRemoverPage .mr-audit-detail { font-size: .9em; line-height: 1.5; margin-top: .3em; overflow-wrap: anywhere; }
+        #mediaRemoverPage [hidden] { display: none !important; }
+        @media (max-width: 650px) {
+            #mediaRemoverPage .mr-filters, #mediaRemoverPage .mr-connections { grid-template-columns: 1fr; }
+            #mediaRemoverPage dialog { padding: 1em; width: calc(100% - 1em); }
+            #mediaRemoverPage .mr-table-wrap { font-size: .9em; }
+        }
+    </style>
+    <div data-role="content">
+        <div class="content-primary mr-content">
+            <h2 class="sectionTitle">Media Remover</h2>
+            <p class="fieldDescription">See who requested and watched your media. Remove series through Sonarr and movies through Radarr, along with their Jellyseerr / Seerr requests.</p>
+            <form id="mrFilters" class="mr-filters">
+                <div class="inputContainer">
+                    <input is="emby-input" label="Search movies and series" id="mrSearch" type="search" placeholder="Movie or series name" autocomplete="off" maxlength="200" />
+                </div>
+                <button is="emby-button" id="mrSearchButton" type="submit" class="raised">Search</button>
+            </form>
+            <p class="secondaryText mr-note">Watched means the movie or all locally available, non-special episodes are marked played. Series progress only covers episodes in your library.</p>
+            <p id="mrLibraryStatus" class="mr-status" role="status" aria-live="polite"></p>
+            <div class="mr-table-wrap paperList" id="mrLibraryRegion" aria-busy="false">
+                <table class="detailTable">
+                    <caption class="secondaryText" id="mrLibraryCaption">Movies and series in your Jellyfin library</caption>
+                    <thead><tr><th scope="col" class="detailTableHeaderCell">Media</th><th scope="col" class="detailTableHeaderCell">Requested by</th><th scope="col" class="detailTableHeaderCell">Watched by</th><th scope="col" class="detailTableHeaderCell">In progress</th><th scope="col" class="detailTableHeaderCell">Votes</th><th scope="col" class="detailTableHeaderCell">Actions</th></tr></thead>
+                    <tbody id="mrItemRows"></tbody>
+                </table>
+            </div>
+            <div class="mr-row mr-between mr-pagination">
+                <span id="mrPageCount" class="secondaryText"></span>
+                <div class="mr-row"><button is="emby-button" id="mrPrevious" type="button" disabled class="raised">Previous</button><button is="emby-button" id="mrNext" type="button" disabled class="raised">Next</button></div>
+            </div>
+
+            <details id="mrVotesSection" class="mr-section" open>
+                <summary class="sectionTitle">User votes</summary>
+                <div class="mr-row mr-between"><p class="secondaryText mr-note">Users marked these items OK to delete. Provider removal supports movies and series. Review other media in Jellyfin.</p><button is="emby-button" id="mrRefreshVotes" type="button" class="raised">Refresh votes</button></div>
+                <p id="mrVotesStatus" class="mr-status" role="status" aria-live="polite"></p>
+                <div class="mr-table-wrap paperList"><table class="detailTable"><caption class="secondaryText" id="mrVotesCaption">Most votes first</caption><thead><tr><th scope="col" class="detailTableHeaderCell">Media</th><th scope="col" class="detailTableHeaderCell">Votes</th><th scope="col" class="detailTableHeaderCell">Voted by</th><th scope="col" class="detailTableHeaderCell">Actions</th></tr></thead><tbody id="mrVoteRows"></tbody></table></div>
+            </details>
+
+            <details id="mrConnectionsSection" class="mr-section">
+                <summary class="sectionTitle">Provider connections</summary>
+                <form id="mrSettings">
+                    <div class="mr-connections">
+                        <fieldset class="verticalSection" id="mrSonarrSettings">
+                            <legend>Sonarr</legend>
+                            <div class="inputContainer"><input is="emby-input" label="Server URL" id="mrSonarrUrl" type="url" placeholder="http://sonarr:8989" autocomplete="off" /></div>
+                            <div class="inputContainer"><input is="emby-input" label="API key" id="mrSonarrKey" type="password" autocomplete="new-password" aria-describedby="mrSonarrKeyStatus" /><span id="mrSonarrKeyStatus" class="secondaryText mr-note">Loading…</span></div>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input is="emby-checkbox" id="mrClearSonarr" type="checkbox" /><span>Clear the saved Sonarr key</span></label></div>
+                        </fieldset>
+                        <fieldset class="verticalSection" id="mrRadarrSettings">
+                            <legend>Radarr</legend>
+                            <div class="inputContainer"><input is="emby-input" label="Server URL" id="mrRadarrUrl" type="url" placeholder="http://radarr:7878" autocomplete="off" /></div>
+                            <div class="inputContainer"><input is="emby-input" label="API key" id="mrRadarrKey" type="password" autocomplete="new-password" aria-describedby="mrRadarrKeyStatus" /><span id="mrRadarrKeyStatus" class="secondaryText mr-note">Loading…</span></div>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input is="emby-checkbox" id="mrClearRadarr" type="checkbox" /><span>Clear the saved Radarr key</span></label></div>
+                        </fieldset>
+                        <fieldset class="verticalSection" id="mrSeerrSettings">
+                            <legend>Jellyseerr / Seerr</legend>
+                            <div class="inputContainer"><input is="emby-input" label="Server URL" id="mrSeerrUrl" type="url" placeholder="http://seerr:5055" autocomplete="off" /></div>
+                            <div class="inputContainer"><input is="emby-input" label="API key" id="mrSeerrKey" type="password" autocomplete="new-password" aria-describedby="mrSeerrKeyStatus" /><span id="mrSeerrKeyStatus" class="secondaryText mr-note">Loading…</span></div>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input is="emby-checkbox" id="mrClearSeerr" type="checkbox" /><span>Clear the saved Jellyseerr / Seerr key</span></label></div>
+                        </fieldset>
+                    </div>
+                    <p class="secondaryText mr-note">URLs must be reachable from the Jellyfin server. Include any base path. Leave an API key blank to keep its saved value.</p>
+                    <div class="mr-row"><button is="emby-button" id="mrSaveSettings" class="raised button-submit" type="submit" disabled>Save connections</button><button is="emby-button" id="mrTestConnections" type="button" disabled class="raised">Test saved connections</button><button is="emby-button" id="mrReloadSettings" type="button" class="raised">Reload connections</button></div>
+                    <p id="mrSettingsStatus" class="mr-status" role="status" aria-live="polite"></p>
+                    <ul id="mrConnectionResults" aria-live="polite" hidden></ul>
+                </form>
+            </details>
+
+            <details id="mrHistorySection" class="mr-section">
+                <summary class="sectionTitle">Removal history</summary>
+                <div class="mr-row mr-between"><p class="secondaryText mr-note">Partial removals can be retried without repeating completed steps.</p><button is="emby-button" id="mrRefreshHistory" type="button" class="raised">Refresh history</button></div>
+                <p id="mrHistoryStatus" class="mr-status" role="status" aria-live="polite"></p>
+                <div class="mr-table-wrap paperList"><table class="detailTable"><caption class="secondaryText">Recent operations</caption><thead><tr><th scope="col" class="detailTableHeaderCell">Media</th><th scope="col" class="detailTableHeaderCell">Result</th><th scope="col" class="detailTableHeaderCell">Updated</th><th scope="col" class="detailTableHeaderCell">Action</th></tr></thead><tbody id="mrHistoryRows"></tbody></table></div>
+            </details>
+
+            <dialog class="dialog" id="mrReviewDialog" aria-labelledby="mrReviewTitle">
+                <div class="mr-row mr-dialog-header"><h2 id="mrReviewTitle">Review media</h2><button is="emby-button" id="mrCloseReview" type="button" aria-label="Close media review" class="button-flat">Close</button></div>
+                <p id="mrDetailStatus" class="mr-status" role="status" aria-live="polite"></p>
+                <div id="mrItemDetail" hidden>
+                    <h3>OK to delete votes</h3>
+                    <div id="mrDetailVotes" class="mr-request-summary mr-names" role="status" aria-live="polite"></div>
+                    <h3>Requested by</h3>
+                    <div id="mrRequestSummary" class="mr-request-summary mr-names" role="status" aria-live="polite"></div>
+                    <p id="mrProgressSummary" class="secondaryText mr-note"></p>
+                    <div class="mr-table-wrap paperList"><table class="detailTable"><caption>Viewing progress for every user</caption><thead><tr><th scope="col" class="detailTableHeaderCell">User</th><th scope="col" class="detailTableHeaderCell">Status</th><th scope="col" class="detailTableHeaderCell">Played / available</th><th scope="col" class="detailTableHeaderCell">Last played</th></tr></thead><tbody id="mrUserRows"></tbody></table></div>
+                    <p id="mrProviderStatus" class="mr-status mr-warning" role="status"></p>
+                    <button is="emby-button" id="mrConfigureProviders" class="button-link" type="button" hidden>Configure connections</button>
+                    <form id="mrRemovalOptions">
+                        <fieldset id="mrOptionsFields">
+                            <legend>Remove from</legend>
+                            <div class="checkboxContainer" id="mrSonarrOption"><label class="emby-checkbox-label"><input is="emby-checkbox" id="mrRemoveSonarr" type="checkbox" /><span>Sonarr</span></label></div>
+                            <div class="checkboxContainer" id="mrRadarrOption" hidden><label class="emby-checkbox-label"><input is="emby-checkbox" id="mrRemoveRadarr" type="checkbox" /><span>Radarr</span></label></div>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input is="emby-checkbox" id="mrRemoveSeerr" type="checkbox" /><span>Jellyseerr / Seerr, including its requests</span></label></div>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input is="emby-checkbox" id="mrDeleteFiles" type="checkbox" disabled /><span id="mrDeleteFilesLabel">Also delete files through the media manager</span></label></div>
+                            <div class="checkboxContainer"><label class="emby-checkbox-label"><input is="emby-checkbox" id="mrExclude" type="checkbox" disabled /><span id="mrExcludeLabel">Exclude from import lists</span></label></div>
+                        </fieldset>
+                        <p id="mrDeleteFilesDescription" class="secondaryText mr-note"></p>
+                        <button is="emby-button" id="mrPreviewButton" class="raised button-submit" type="submit">Preview removal</button>
+                    </form>
+                </div>
+                <div id="mrPreviewSection" class="mr-preview" hidden>
+                    <h3>Review the exact removal</h3>
+                    <dl id="mrPreviewDetails"></dl>
+                    <div class="infoBanner" id="mrWarningsPanel"><ul id="mrWarnings"></ul></div>
+                    <p id="mrPreviewExpiry" class="secondaryText mr-note"></p>
+                    <form id="mrExecuteForm">
+                        <div class="inputContainer mr-confirmation"><input is="emby-input" label="Type the title to confirm" id="mrConfirmTitle" type="text" autocomplete="off" spellcheck="false" required /></div>
+                        <button is="emby-button" id="mrExecuteButton" class="raised button-delete" type="submit" disabled>Remove media</button>
+                    </form>
+                </div>
+                <p id="mrRemovalStatus" class="mr-status" role="status" aria-live="polite"></p>
+            </dialog>
+
+            <dialog class="dialog" id="mrRetryDialog" aria-labelledby="mrRetryTitle">
+                <div class="mr-row mr-dialog-header"><h2 id="mrRetryTitle">Retry incomplete removal</h2><button is="emby-button" id="mrCloseRetry" type="button" aria-label="Close retry dialog" class="button-flat">Close</button></div>
+                <p id="mrRetrySummary"></p>
+                <dl id="mrRetryDetails"></dl>
+                <p id="mrRetryError" class="mr-warning"></p>
+                <form id="mrRetryForm">
+                    <div class="inputContainer mr-confirmation"><input is="emby-input" label="Type the title to confirm" id="mrRetryConfirm" type="text" autocomplete="off" spellcheck="false" required /></div>
+                    <button is="emby-button" id="mrRetryButton" class="raised button-delete" type="submit" disabled>Retry remaining steps</button>
+                </form>
+                <p id="mrRetryStatus" class="mr-status" role="status" aria-live="polite"></p>
+            </dialog>
+        </div>
+    </div>
+</div>

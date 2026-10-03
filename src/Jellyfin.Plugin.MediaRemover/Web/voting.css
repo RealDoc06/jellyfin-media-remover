@@ -1,0 +1,162 @@
+/* Layout only: Jellyfin and the selected theme supply colors and native controls. */
+.mr-voting-home {
+    margin-block: 1em 1.5em;
+}
+.mr-voting-heading,
+.mr-voting-controls,
+.mr-voting-paging {
+    display: flex;
+    align-items: center;
+    gap: .5em 1em;
+    flex-wrap: wrap;
+}
+.mr-voting-heading h2 {
+    margin: 0;
+    flex: 1 1 auto;
+}
+.mr-voting-description {
+    margin-block: .5em 1em;
+}
+.mr-voting-list {
+    margin: 0;
+}
+.mr-voting-row {
+    gap: 1em;
+    padding: .75em 1em;
+}
+.mr-voting-row .listItemBody {
+    min-width: 0;
+}
+.mr-voting-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.mr-voting-row > button {
+    flex: 0 0 auto;
+    margin: 0;
+}
+.mr-voting-home .mr-voting-heading {
+    gap: .25em;
+    flex-wrap: nowrap;
+    margin-bottom: .25em;
+}
+.mr-voting-home .mr-voting-heading h2 {
+    font-size: 1.25em;
+}
+.mr-voting-home .mr-voting-heading button {
+    flex: 0 0 auto;
+    min-height: 44px;
+    margin: 0;
+}
+.mr-voting-home .mr-voting-compact-row {
+    flex-wrap: nowrap;
+    gap: .75em;
+    padding: .25em 0;
+    min-height: 3.25em;
+}
+.mr-voting-home .listItemBody {
+    flex: 1 1 0;
+    padding: 0;
+}
+.mr-voting-home .mr-voting-name,
+.mr-voting-home .mr-voting-detail {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mr-voting-home [data-mr-vote] {
+    min-height: 44px;
+    padding: .5em .8em;
+}
+.mr-voting-home .mr-voting-empty {
+    padding: .5em 0;
+}
+.mr-voting-toast {
+    position: fixed;
+    z-index: 10000;
+    bottom: 2em;
+    inset-inline: 1em;
+    width: fit-content;
+    max-width: calc(100% - 4em);
+    margin-inline: auto;
+    padding: .75em 1em;
+}
+.mr-voting-menu {
+    max-width: calc(100vw - 1em);
+}
+.mr-voting-menu .actionSheetScroller {
+    max-height: calc(100dvh - 2em);
+}
+.mr-voting-message {
+    margin-block: .75em;
+}
+.mr-voting-home .mr-voting-message[role="status"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+.mr-voting-home .emby-button:disabled,
+.mr-voting-dialog .emby-button:disabled {
+    opacity: .5;
+    cursor: default;
+}
+.mr-voting-empty {
+    padding: 1em;
+    margin: 0;
+}
+.mr-voting-dialog {
+    box-sizing: border-box;
+    width: min(58em, calc(100% - 2em));
+    max-height: calc(100dvh - 3em);
+    overflow-y: auto;
+    color: inherit;
+    margin: auto;
+    padding: 1.5em;
+    will-change: auto;
+}
+.mr-voting-controls {
+    align-items: flex-end;
+    margin-bottom: 1em;
+}
+.mr-voting-search {
+    flex: 1 1 16em;
+    margin: 0;
+}
+.mr-voting-search label {
+    display: block;
+    margin-bottom: .5em;
+}
+.mr-voting-search input {
+    box-sizing: border-box;
+    width: 100%;
+}
+.mr-voting-paging {
+    justify-content: flex-end;
+    margin-top: 1em;
+}
+.mr-voting-paging > span {
+    margin-inline-end: auto;
+}
+.mr-voting-nav {
+    cursor: pointer;
+}
+@media (max-width: 42em) {
+    .mr-voting-dialog {
+        width: calc(100% - 1em);
+        max-height: calc(100dvh - 1em);
+        padding: 1em;
+    }
+    .mr-voting-row {
+        flex-wrap: wrap;
+        gap: .5em;
+    }
+    .mr-voting-row .listItemBody {
+        flex-basis: 100%;
+    }
+    .mr-voting-row > button {
+        margin-inline-start: auto;
+    }
+}

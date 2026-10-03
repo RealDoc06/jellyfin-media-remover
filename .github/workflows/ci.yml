@@ -1,0 +1,27 @@
+name: Build and test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        jellyfin: ['12.1.0', '10.11.11']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+      - run: dotnet test --configuration Release -p:JellyfinVersion=${{ matrix.jellyfin }}
+      - run: node --check src/Jellyfin.Plugin.MediaRemover/Web/configuration.js
+      - run: node --check src/Jellyfin.Plugin.MediaRemover/Web/voting.js
+      - run: python3 scripts/package.py --jellyfin '${{ matrix.jellyfin }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: media-remover-jellyfin-${{ matrix.jellyfin }}
+          path: |
+            artifacts/*.zip
+            artifacts/*.sha256

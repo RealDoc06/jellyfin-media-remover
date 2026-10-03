@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+artifacts/
+.dev/
+.tools/
+*.user
+TestResults/
+__pycache__/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
