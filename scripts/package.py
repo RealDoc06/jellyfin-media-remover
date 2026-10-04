@@ -35,7 +35,7 @@ def main():
     if any(str(ROOT).encode(encoding) in assembly_bytes for encoding in ("utf-8", "utf-16le")):
         raise RuntimeError("The release assembly contains the local checkout path; refusing to package it.")
     manifest = {
-        "category": "General", "changelog": "Advisory votes now cover movies, series, music, books, photos, collections, and playlists. Episode and season actions keep voting for the whole series. Admin movie removal now integrates Radarr and Seerr with preview, title confirmation, and resumable cleanup. Existing votes and Home preferences are preserved.",
+        "category": "General", "changelog": "Voting views and admin tables now show posters: a poster grid in Deletion votes, a scrolling poster row of up to ten items on Home, and thumbnails in the admin library, vote list and review dialog. Advisory votes now cover movies, series, music, books, photos, collections, and playlists. Episode and season actions keep voting for the whole series. Admin movie removal now integrates Radarr and Seerr with preview, title confirmation, and resumable cleanup. Existing votes and Home preferences are preserved.",
         "description": "Advisory votes for library media, with movie and series progress and Radarr/Sonarr/Seerr removal.",
         "guid": PLUGIN_ID, "name": "Media Remover", "overview": "Library voting and admin media removal",
         "owner": "Doc", "targetAbi": args.jellyfin + ".0", "version": assembly_version,
