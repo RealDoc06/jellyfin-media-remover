@@ -10,7 +10,7 @@ Users can vote once per item and withdraw their vote. Repeating an existing vote
 
 The searchable voting list respects the user's library access, parental restrictions, and playlist privacy. Users see their own progress and anonymous totals. The admin summary identifies voters and their vote dates for media the administrator can access. Votes from deleted/disabled users and media no longer present in Jellyfin are excluded from the summary.
 
-Home shows at most three items nominated by **other enabled users**, ranked by vote count. Items with only the current user's vote are excluded. Dismissal is stored per account and applies across devices; **Show on Home** in the voting browser restores it.
+Home shows at most ten items nominated by **other enabled users**, ranked by vote count. Items with only the current user's vote are excluded. Dismissal is stored per account and applies across devices; **Show on Home** in the voting browser restores it.
 
 Votes and preferences are written atomically to `<Jellyfin data directory>/media-remover/votes.json`. An unreadable file causes voting to fail instead of silently discarding saved data. Version 1.3.0 retains existing series votes, timestamps, and preferences. Legacy series endpoints remain available for cached older clients.
 

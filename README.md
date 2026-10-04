@@ -6,11 +6,11 @@ A Jellyfin plugin that brings deletion votes, viewing progress, request owners, 
 
 [Download v1.3.0](https://github.com/RealDoc06/jellyfin-media-remover/releases/tag/v1.3.0) · [Install](#install) · [How it works](#how-it-works) · [Edit and build](#edit-and-build) · [Screenshots](docs/screenshots.md)
 
-![Compact deletion voting on Jellyfin Home](docs/screenshots/home-desktop.png)
+![Deletion voting on Jellyfin Home](docs/screenshots/home-desktop.png)
 
 ## What it does
 
-- **Voting that fits Jellyfin.** A compact, dismissible Home section, a searchable sidebar view, and an action in native media menus.
+- **Voting that fits Jellyfin.** A dismissible poster row on Home, a searchable poster grid in the sidebar view, and an action in native media menus.
 - **Useful context for admins.** Request owners, each user's viewing progress, vote totals, voter names, and dates.
 - **Connected removal.** Movies through **Radarr + Jellyseerr / Seerr**; series through **Sonarr + Jellyseerr / Seerr**.
 - **A deliberate last step.** Review exact provider matches, choose whether to delete files, and type the title to confirm. Resume incomplete operations from removal history.
@@ -85,7 +85,7 @@ URLs must be reachable **from the Jellyfin server**, including any configured re
 
 Open an item's **More** menu and choose its deletion-vote action, or open **Deletion votes** in the sidebar to search your accessible library. **OK to delete** adds your vote; **Undo vote** on Home or **Withdraw vote** in the browser removes it. Episode and season actions always nominate their parent series.
 
-Home shows up to **three items nominated by other users**, ranked by vote count. Items with no votes or only your own vote do not appear there. Close the section to dismiss it for your account across devices; **Show on Home** in the voting browser restores it.
+Home shows up to **ten items nominated by other users**, ranked by vote count. Items with no votes or only your own vote do not appear there. Close the section to dismiss it for your account across devices; **Show on Home** in the voting browser restores it.
 
 Regular users see their own progress and anonymous vote totals. Jellyfin's library, parental, and private-playlist restrictions still apply.
 
