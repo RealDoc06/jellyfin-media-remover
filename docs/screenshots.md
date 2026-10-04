@@ -2,9 +2,9 @@
 
 These are captures of the actual plugin in Jellyfin Web, using synthetic media, accounts, and provider records. Open an image to view its full resolution.
 
-## Compact Home voting
+## Home voting
 
-Up to three items nominated by other users appear on Home. Vote or undo in one click, browse all media, or dismiss the section for your account.
+Up to ten items nominated by other users appear on Home as a row of posters. Vote or undo in one click, browse all media, or dismiss the section for your account.
 
 [![Deletion votes on desktop Home](screenshots/home-desktop.png)](screenshots/home-desktop.png)
 
@@ -28,7 +28,7 @@ Movies use Radarr and Seerr; series use Sonarr and Seerr. Review the matched rec
 
 ## Mobile Jellyfin Web
 
-The same compact Home controls adapt to a narrow screen. This is the browser interface; native Jellyfin mobile and TV apps do not include the injected voting controls.
+The same Home controls adapt to a narrow screen. This is the browser interface; native Jellyfin mobile and TV apps do not include the injected voting controls.
 
 <a href="screenshots/home-mobile.png"><img src="screenshots/home-mobile.png" alt="Deletion voting in mobile Jellyfin Web" width="390"></a>
 

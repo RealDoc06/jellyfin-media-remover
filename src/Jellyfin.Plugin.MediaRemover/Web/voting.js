@@ -18,7 +18,8 @@
     }
 
     const prefix = 'MediaRemover/Voting/';
-    const pageSize = 25;
+    // Divisible by common grid column counts so full pages end on a complete row.
+    const pageSize = 24;
     let session = null;
     let reconcileTimer = null;
     let pendingMenu = null;
@@ -94,58 +95,78 @@
         return labels[item.type] || 'Media';
     }
 
-    function progressText(item, compact) {
+    // Square art (albums, tracks) is letterboxed in the shared poster frame instead of cropped.
+    const squareTypes = ['MusicAlbum', 'MusicArtist', 'Audio', 'AudioBook', 'Playlist'];
+    const typeIcons = {
+        Series: 'tv', Movie: 'movie', Video: 'videocam', MusicVideo: 'music_video', MusicAlbum: 'album',
+        MusicArtist: 'person', Audio: 'music_note', AudioBook: 'headphones', Book: 'book', Photo: 'photo',
+        PhotoAlbum: 'photo_library', BoxSet: 'collections', Playlist: 'queue_music', Folder: 'folder'
+    };
+
+    function progressText(item) {
         const count = item.itemCount;
-        const unit = item.progressUnit || 'item';
-        const units = unit + (count === 1 ? '' : 's');
-        if (!count || item.status === 'empty') return 'No ' + unit + 's available';
+        if (!count || item.status === 'empty') return 'No ' + (item.progressUnit || 'item') + 's available';
         const video = ['Series', 'Movie', 'Video', 'MusicVideo'].includes(item.type);
         const audio = ['Audio', 'AudioBook', 'MusicAlbum', 'MusicArtist'].includes(item.type);
         const photo = ['Photo', 'PhotoAlbum'].includes(item.type);
         const completed = video ? 'Watched' : audio ? 'Played' : photo ? 'Viewed' : item.type === 'Book' ? 'Read' : 'Completed';
-        const unwatched = completed === 'Completed' ? 'Not started' : 'Not ' + completed.toLowerCase();
+        if (item.status === 'watched') return completed;
+        if (item.status === 'unwatched') return completed === 'Completed' ? 'Not started' : 'Not ' + completed.toLowerCase();
         const aggregate = count > 1 || ['Series', 'MusicAlbum', 'MusicArtist', 'BoxSet', 'Playlist', 'PhotoAlbum', 'Folder'].includes(item.type);
-        if (!aggregate || compact) {
-            if (item.status === 'watched') return completed;
-            if (item.status === 'unwatched') return unwatched;
-            return aggregate ? item.playedCount + '/' + count + ' ' + completed.toLowerCase() : 'In progress';
-        }
-        if (item.status === 'watched') return 'All ' + count + ' ' + units + ' ' + completed.toLowerCase();
-        if (item.status === 'unwatched') return unwatched + ' · ' + count + ' ' + units;
-        return item.playedCount + '/' + count + ' ' + units + ' ' + completed.toLowerCase()
-            + (item.inProgressCount ? ' · ' + item.inProgressCount + ' in progress' : '');
+        return aggregate ? item.playedCount + '/' + count + ' ' + completed.toLowerCase() : 'In progress';
     }
 
-    function updateRow(context, row, item) {
-        const toggle = row.querySelector('[data-mr-vote]');
-        toggle.textContent = item.myVote ? (row.classList.contains('mr-voting-compact-row') ? 'Undo vote' : 'Withdraw vote') : 'OK to delete';
+    // Jellyfin serves Primary images without auth. The type icon shows through when an item has none.
+    function poster(context, item) {
+        const frame = node('div', undefined, 'mr-voting-poster');
+        if (squareTypes.includes(item.type)) frame.dataset.shape = 'square';
+        const icon = node('span', '', 'material-icons ' + (typeIcons[item.type] || 'image'));
+        icon.setAttribute('aria-hidden', 'true');
+        const image = node('img');
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.addEventListener('error', () => image.remove());
+        image.src = context.api.getUrl('Items/' + encodeURIComponent(item.id) + '/Images/Primary', { maxHeight: 360, quality: 90 });
+        frame.append(icon, image);
+        if (item.status === 'inProgress' && item.itemCount > 1) {
+            const bar = node('div', undefined, 'itemProgressBar mr-voting-progress');
+            const fill = node('div', undefined, 'itemProgressBarForeground');
+            fill.style.width = Math.round(100 * item.playedCount / item.itemCount) + '%';
+            bar.append(fill);
+            frame.append(bar);
+        }
+        return frame;
+    }
+
+    function updateCard(context, card, item) {
+        const toggle = card.querySelector('[data-mr-vote]');
+        toggle.textContent = item.myVote ? 'Undo vote' : 'OK to delete';
         toggle.setAttribute('aria-pressed', String(item.myVote));
         toggle.setAttribute('aria-label', (item.myVote ? 'Withdraw vote for ' : 'OK to delete ') + item.name);
         toggle.disabled = context.busy.has(item.id);
-        row.querySelector('[data-mr-vote-count]').textContent = item.voteCount + (item.voteCount === 1 ? ' vote' : ' votes');
-        const detail = row.querySelector('.mr-voting-detail');
-        detail.title = detail.textContent;
+        card.classList.toggle('mr-voting-mine', item.myVote);
+        const count = card.querySelector('[data-mr-vote-count]');
+        count.textContent = item.voteCount + (item.voteCount === 1 ? ' vote' : ' votes');
+        count.hidden = !item.voteCount;
     }
 
-    function mediaRow(context, item, message, compact = false) {
-        const row = node('div', undefined, 'listItem listItem-border mr-voting-row' + (compact ? ' mr-voting-compact-row' : ''));
-        row.dataset.mrItem = item.id;
-        const info = node('div', undefined, 'listItemBody');
-        const name = node('div', item.name + (item.productionYear ? ' (' + item.productionYear + ')' : '')
-            + (compact && item.context ? ' · ' + item.context : ''), 'listItemBodyText mr-voting-name');
-        name.title = name.textContent;
-        const watched = node('span', progressText(item, compact));
-        const count = node('span', '');
+    function mediaCard(context, item, message) {
+        const card = node('div', undefined, 'mr-voting-card');
+        card.dataset.mrItem = item.id;
+        const frame = poster(context, item);
+        const count = node('span', undefined, 'mr-voting-count');
         count.dataset.mrVoteCount = '';
-        const detail = node('div', undefined, 'listItemBodyText secondary mr-voting-detail');
-        const type = node('span', mediaType(item) + (!compact && item.context ? ' · ' + item.context : ''));
-        detail.append(type, document.createTextNode(' · '), count, document.createTextNode(' · '), watched);
-        info.append(name, detail);
+        frame.append(count);
+        const name = node('div', item.name + (item.productionYear ? ' (' + item.productionYear + ')' : ''), 'mr-voting-name');
+        name.title = name.textContent;
+        const detail = node('div', [mediaType(item), item.context, progressText(item)].filter(Boolean).join(' · '), 'secondary mr-voting-detail');
+        detail.title = detail.textContent;
         const toggle = button('', () => castVote(context, item, message));
         toggle.dataset.mrVote = '';
-        row.append(info, toggle);
-        updateRow(context, row, item);
-        return row;
+        card.append(frame, name, detail, toggle);
+        updateCard(context, card, item);
+        return card;
     }
 
     function updateVisibleRows(context) {
@@ -153,7 +174,7 @@
             if (!view) continue;
             for (const row of view.list.querySelectorAll('[data-mr-item]')) {
                 const item = view.items.find(candidate => candidate.id === row.dataset.mrItem);
-                if (item) updateRow(context, row, item);
+                if (item) updateCard(context, row, item);
             }
         }
     }
@@ -244,7 +265,7 @@
             }
         }
         view.items = items;
-        view.list.replaceChildren(...items.map(item => mediaRow(context, item, view.message, view === context.home)));
+        view.list.replaceChildren(...items.map(item => mediaCard(context, item, view.message)));
         if (!items.length) view.list.append(node('p', view === context.home ? 'No votes from other users yet.' : 'No media found.', 'mr-voting-empty'));
     }
 
@@ -285,7 +306,7 @@
         const voteVersion = context.voteVersion;
         if (!quiet) setMessage(view.message, 'Loading votes…');
         try {
-            const result = await request(context, 'Items/Home', 'GET', undefined, { limit: 3 });
+            const result = await request(context, 'Items/Home', 'GET', undefined, { limit: 10 });
             if (!isCurrent(context) || context.home !== view || version !== view.version) return;
             const focusedItem = view.list.contains(document.activeElement) ? document.activeElement.closest('[data-mr-item]')?.dataset.mrItem : null;
             if (!quiet) setMessage(view.message, '');
@@ -338,7 +359,7 @@
             } else setHomeDismissed(context, !context.preferences.homeDismissed, message);
         }, 'button-flat');
         controls.append(searchBox, preference);
-        const list = node('div', undefined, 'paperList mr-voting-list');
+        const list = node('div', undefined, 'mr-voting-list');
         const paging = node('div', undefined, 'mr-voting-paging');
         const count = node('span');
         count.setAttribute('role', 'status');

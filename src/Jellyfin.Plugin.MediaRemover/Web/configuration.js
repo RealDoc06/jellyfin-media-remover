@@ -209,6 +209,28 @@ export default function (view) {
         renderDetailVotes();
     }
 
+    // Jellyfin serves Primary images without auth; callers drop the image when an item has none.
+    function posterUrl(itemId, maxHeight) {
+        return window.ApiClient.getUrl('Items/' + encodeURIComponent(itemId) + '/Images/Primary', { maxHeight, quality: 90 });
+    }
+
+    // Title cell with a small poster. Returns the text column for the title, year and type.
+    function mediaCell(row, itemId) {
+        const thumb = textNode('span', '', 'mr-thumb');
+        const image = document.createElement('img');
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.addEventListener('error', () => image.remove());
+        image.src = posterUrl(itemId, 160);
+        thumb.append(image);
+        const info = textNode('div', '', 'mr-media-info');
+        const media = textNode('div', '', 'mr-media');
+        media.append(thumb, info);
+        cell(row, '').append(media);
+        return info;
+    }
+
     function mediaLink(label, itemId) {
         const link = textNode('a', label, 'emby-button button-link mr-link');
         link.href = '#/details?id=' + encodeURIComponent(itemId) + '&serverId=' + encodeURIComponent(window.ApiClient.serverId());
@@ -228,7 +250,7 @@ export default function (view) {
             target.replaceChildren();
             result.items.sort((a, b) => b.voteCount - a.voteCount || a.name.localeCompare(b.name)).forEach((item) => {
                 const row = document.createElement('tr');
-                const title = cell(row, '');
+                const title = mediaCell(row, item.itemId);
                 const hasManager = item.type === 'Series' || item.type === 'Movie';
                 title.append(hasManager ? button(item.name, () => openReview(item.itemId)) : mediaLink(item.name, item.itemId));
                 if (item.productionYear) title.append(textNode('span', item.productionYear, 'mr-year secondaryText'));
@@ -399,7 +421,7 @@ export default function (view) {
             target.replaceChildren();
             result.items.forEach((item) => {
                 const row = document.createElement('tr');
-                const title = cell(row, '');
+                const title = mediaCell(row, item.id);
                 title.append(button(item.name, () => openReview(item.id)));
                 if (item.productionYear) title.append(textNode('span', item.productionYear, 'mr-year secondaryText'));
                 title.append(textNode('div', item.type, 'secondaryText mr-note'));
@@ -497,6 +519,7 @@ export default function (view) {
         invalidatePreview();
         status('mrRemovalStatus');
         element('mrReviewTitle').textContent = 'Review media';
+        element('mrReviewPoster').hidden = true;
         element('mrItemDetail').hidden = true;
         element('mrOptionsFields').disabled = true;
         element('mrRemoveSonarr').checked = false;
@@ -517,6 +540,8 @@ export default function (view) {
             detail = result;
             renderDetailVotes();
             element('mrReviewTitle').textContent = result.name;
+            element('mrReviewPoster').src = posterUrl(itemId, 240);
+            element('mrReviewPoster').hidden = false;
             element('mrProgressSummary').textContent = result.type === 'Movie'
                 ? 'Movie · Watched means the movie is marked played, including manual marks.'
                 : 'Series · ' + result.episodeCount + ' locally available, non-special episodes. Manually marked episodes count as played.';
@@ -796,6 +821,7 @@ export default function (view) {
     });
     element('mrExecuteForm').addEventListener('submit', executeRemoval);
     element('mrCloseReview').addEventListener('click', () => reviewDialog.close());
+    element('mrReviewPoster').addEventListener('error', () => { element('mrReviewPoster').hidden = true; });
     element('mrConfigureProviders').addEventListener('click', () => {
         const managerField = detail?.type === 'Movie' ? 'mrRadarrUrl' : 'mrSonarrUrl';
         reviewDialog.close();

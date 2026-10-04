@@ -1,4 +1,5 @@
-/* Layout only: Jellyfin and the selected theme supply colors and native controls. */
+/* Layout only: Jellyfin and the selected theme supply colors and native controls.
+   Fixed colors are limited to overlays drawn on top of poster art. */
 .mr-voting-home {
     margin-block: 1em 1.5em;
 }
@@ -17,28 +18,100 @@
 .mr-voting-description {
     margin-block: .5em 1em;
 }
-.mr-voting-list {
-    margin: 0;
-}
-.mr-voting-row {
-    gap: 1em;
-    padding: .75em 1em;
-}
-.mr-voting-row .listItemBody {
+
+/* Poster cards shared by Home and the voting browser. */
+.mr-voting-card {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.mr-voting-poster {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: .3em;
+    background: rgb(128 128 128 / 18%);
+}
+.mr-voting-poster > .material-icons {
+    font-size: 3em;
+    opacity: .4;
+}
+.mr-voting-poster img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.mr-voting-poster[data-shape="square"] img {
+    object-fit: contain;
+}
+.mr-voting-mine .mr-voting-poster::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 3px solid currentColor;
+    border-radius: inherit;
+}
+.mr-voting-count {
+    position: absolute;
+    top: .4em;
+    inset-inline-start: .4em;
+    padding: .2em .5em;
+    border-radius: .3em;
+    background: rgb(0 0 0 / 75%);
+    color: #fff;
+    font-size: .8em;
+    font-weight: 600;
+}
+.mr-voting-count[hidden] {
+    display: none;
+}
+.mr-voting-progress {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+}
+.mr-voting-name,
+.mr-voting-detail {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .mr-voting-name {
-    white-space: normal;
-    overflow-wrap: anywhere;
+    margin-top: .5em;
 }
-.mr-voting-row > button {
-    flex: 0 0 auto;
+.mr-voting-detail {
+    font-size: .85em;
+    margin-top: .15em;
+}
+.mr-voting-card [data-mr-vote] {
+    width: 100%;
+    justify-content: center;
+    margin: .5em 0 0;
+    padding: .5em;
+    font-size: .9em;
+}
+.mr-voting-empty {
+    grid-column: 1 / -1;
+    padding: 1em 0;
     margin: 0;
 }
+
+/* Voting browser: wrapping grid. */
+.mr-voting-dialog .mr-voting-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8.5em, 1fr));
+    gap: 1.5em 1em;
+}
+
+/* Home: a single scrolling row, like Jellyfin's own Home sections. */
 .mr-voting-home .mr-voting-heading {
     gap: .25em;
     flex-wrap: nowrap;
-    margin-bottom: .25em;
+    margin-bottom: .5em;
 }
 .mr-voting-home .mr-voting-heading h2 {
     font-size: 1.25em;
@@ -48,29 +121,20 @@
     min-height: 44px;
     margin: 0;
 }
-.mr-voting-home .mr-voting-compact-row {
-    flex-wrap: nowrap;
-    gap: .75em;
-    padding: .25em 0;
-    min-height: 3.25em;
+.mr-voting-home .mr-voting-list {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 9.5em;
+    gap: 1em;
+    overflow-x: auto;
+    padding-bottom: .75em;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
 }
-.mr-voting-home .listItemBody {
-    flex: 1 1 0;
-    padding: 0;
+.mr-voting-home .mr-voting-card {
+    scroll-snap-align: start;
 }
-.mr-voting-home .mr-voting-name,
-.mr-voting-home .mr-voting-detail {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.mr-voting-home [data-mr-vote] {
-    min-height: 44px;
-    padding: .5em .8em;
-}
-.mr-voting-home .mr-voting-empty {
-    padding: .5em 0;
-}
+
 .mr-voting-toast {
     position: fixed;
     z-index: 10000;
@@ -103,13 +167,9 @@
     opacity: .5;
     cursor: default;
 }
-.mr-voting-empty {
-    padding: 1em;
-    margin: 0;
-}
 .mr-voting-dialog {
     box-sizing: border-box;
-    width: min(58em, calc(100% - 2em));
+    width: min(76em, calc(100% - 2em));
     max-height: calc(100dvh - 3em);
     overflow-y: auto;
     color: inherit;
@@ -135,7 +195,7 @@
 }
 .mr-voting-paging {
     justify-content: flex-end;
-    margin-top: 1em;
+    margin-top: 1.5em;
 }
 .mr-voting-paging > span {
     margin-inline-end: auto;
@@ -149,14 +209,11 @@
         max-height: calc(100dvh - 1em);
         padding: 1em;
     }
-    .mr-voting-row {
-        flex-wrap: wrap;
-        gap: .5em;
+    .mr-voting-dialog .mr-voting-list {
+        grid-template-columns: repeat(auto-fill, minmax(7em, 1fr));
+        gap: 1.25em .75em;
     }
-    .mr-voting-row .listItemBody {
-        flex-basis: 100%;
-    }
-    .mr-voting-row > button {
-        margin-inline-start: auto;
+    .mr-voting-home .mr-voting-list {
+        grid-auto-columns: 7.5em;
     }
 }

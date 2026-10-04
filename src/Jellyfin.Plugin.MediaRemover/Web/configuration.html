@@ -12,6 +12,11 @@
         #mediaRemoverPage .detailTableHeaderCell, #mediaRemoverPage .detailTableBodyCell { padding: 1em; vertical-align: middle; }
         #mediaRemoverPage .detailTableHeaderCell { white-space: nowrap; }
         #mediaRemoverPage caption { text-align: left; padding: .8em 1em; }
+        #mediaRemoverPage .mr-media { display: flex; align-items: center; gap: .9em; }
+        #mediaRemoverPage .mr-media-info { min-width: 0; }
+        #mediaRemoverPage .mr-thumb { flex: 0 0 auto; width: 2.6em; aspect-ratio: 2 / 3; overflow: hidden; border-radius: .2em; background: rgb(128 128 128 / 18%); }
+        #mediaRemoverPage .mr-thumb img, #mediaRemoverPage .mr-review-poster { display: block; width: 100%; height: 100%; object-fit: cover; }
+        #mediaRemoverPage .mr-review-poster { width: 4em; height: auto; aspect-ratio: 2 / 3; border-radius: .2em; flex-shrink: 0; }
         #mediaRemoverPage .mr-year { margin-left: .6em; font-size: .9em; }
         #mediaRemoverPage .mr-link { text-align: start; }
         #mediaRemoverPage .mr-actions { display: flex; align-items: center; gap: .4em; white-space: nowrap; }
@@ -118,7 +123,7 @@
             </details>
 
             <dialog class="dialog" id="mrReviewDialog" aria-labelledby="mrReviewTitle">
-                <div class="mr-row mr-dialog-header"><h2 id="mrReviewTitle">Review media</h2><button is="emby-button" id="mrCloseReview" type="button" aria-label="Close media review" class="button-flat">Close</button></div>
+                <div class="mr-row mr-dialog-header"><img id="mrReviewPoster" class="mr-review-poster" alt="" hidden /><h2 id="mrReviewTitle">Review media</h2><button is="emby-button" id="mrCloseReview" type="button" aria-label="Close media review" class="button-flat">Close</button></div>
                 <p id="mrDetailStatus" class="mr-status" role="status" aria-live="polite"></p>
                 <div id="mrItemDetail" hidden>
                     <h3>OK to delete votes</h3>
