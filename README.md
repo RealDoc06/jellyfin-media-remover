@@ -1,3 +1,5 @@
+# 🚨 THIS REPO IS SLOP I HAVE NO INTEREST IN ADDING FEATURES IT NOT NECESSARY *FOR ME* 🚨
+
 # Jellyfin Media Remover
 
 **Let your users help decide what can go. Keep the final decision with the admin.**
