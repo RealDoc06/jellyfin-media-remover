@@ -93,7 +93,7 @@ Regular users see their own progress and anonymous vote totals. Jellyfin's libra
 
 ### Admins review the context
 
-Open **Media Remover** in the dashboard to search movies and series. **View** shows request owners and each user's progress. Expand **User votes** to review all nominated media, including voter names and dates. Other media types link to their native Jellyfin pages.
+Open **Media Remover** in the dashboard to search movies and series. Click the **Media**, **Watched by**, **In progress**, or **Votes** header to sort; click again to reverse. **View** shows request owners and each user's progress. Expand **User votes** to review all nominated media, including voter names and dates. A completed removal clears that item's votes, even when its files are kept. Other media types link to their native Jellyfin pages.
 
 ![Admin library with request owners, viewing progress, and votes](docs/screenshots/admin-library.png)
 

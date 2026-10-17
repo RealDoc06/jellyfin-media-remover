@@ -11,6 +11,11 @@
         #mediaRemoverPage .mr-table-wrap { overflow-x: auto; margin-top: 1em; }
         #mediaRemoverPage .detailTableHeaderCell, #mediaRemoverPage .detailTableBodyCell { padding: 1em; vertical-align: middle; }
         #mediaRemoverPage .detailTableHeaderCell { white-space: nowrap; }
+        #mediaRemoverPage .mr-sort { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+        #mediaRemoverPage .mr-sort::after { content: "\2195"; display: inline-block; width: 1em; margin-left: .3em; font-size: .8em; opacity: .4; }
+        #mediaRemoverPage [aria-sort="ascending"] .mr-sort::after { content: "\25B2"; opacity: 1; }
+        #mediaRemoverPage [aria-sort="descending"] .mr-sort::after { content: "\25BC"; opacity: 1; }
+        #mediaRemoverPage .mr-sort:focus-visible { outline: 2px solid currentColor; outline-offset: .2em; }
         #mediaRemoverPage caption { text-align: left; padding: .8em 1em; }
         #mediaRemoverPage .mr-media { display: flex; align-items: center; gap: .9em; }
         #mediaRemoverPage .mr-media-info { min-width: 0; }
@@ -69,7 +74,7 @@
             <div class="mr-table-wrap paperList" id="mrLibraryRegion" aria-busy="false">
                 <table class="detailTable">
                     <caption class="secondaryText" id="mrLibraryCaption">Movies and series in your Jellyfin library</caption>
-                    <thead><tr><th scope="col" class="detailTableHeaderCell">Media</th><th scope="col" class="detailTableHeaderCell">Requested by</th><th scope="col" class="detailTableHeaderCell">Watched by</th><th scope="col" class="detailTableHeaderCell">In progress</th><th scope="col" class="detailTableHeaderCell">Votes</th><th scope="col" class="detailTableHeaderCell">Actions</th></tr></thead>
+                    <thead><tr><th scope="col" class="detailTableHeaderCell" aria-sort="ascending"><button type="button" class="mr-sort" data-mr-sort="name">Media</button></th><th scope="col" class="detailTableHeaderCell">Requested by</th><th scope="col" class="detailTableHeaderCell"><button type="button" class="mr-sort" data-mr-sort="watched">Watched by</button></th><th scope="col" class="detailTableHeaderCell"><button type="button" class="mr-sort" data-mr-sort="inProgress">In progress</button></th><th scope="col" class="detailTableHeaderCell"><button type="button" class="mr-sort" data-mr-sort="votes">Votes</button></th><th scope="col" class="detailTableHeaderCell">Actions</th></tr></thead>
                     <tbody id="mrItemRows"></tbody>
                 </table>
             </div>

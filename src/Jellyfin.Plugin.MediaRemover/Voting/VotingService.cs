@@ -174,6 +174,25 @@ public sealed class VotingService(IVotingLibrary library, IVoteStore store, Time
         return new(items, items.Sum(item => item.VoteCount), items.Length);
     }
 
+    // Vote totals per item from enabled accounts. Callers must already be administrators.
+    public IReadOnlyDictionary<Guid, int> GetVoteCounts() =>
+        GetEnabledVotes().ToDictionary(group => group.Key, group => group.Count());
+
+    // A completed removal settles every vote cast before it finished, so the item leaves the vote
+    // lists even when its files were kept. Later votes start a new nomination. Safe to repeat.
+    public void SettleRemovals(IEnumerable<RemovalOperation> operations)
+    {
+        var removedAt = operations.Where(operation => operation.Status == "completed")
+            .GroupBy(operation => operation.Options.SeriesId)
+            .ToDictionary(group => group.Key, group => group.Max(operation => operation.UpdatedAt));
+        if (removedAt.Count == 0) return;
+        lock (_gate)
+        {
+            var kept = _state.Votes.Where(vote => !removedAt.TryGetValue(vote.ItemId, out var at) || vote.VotedAt > at).ToArray();
+            if (kept.Length != _state.Votes.Count) Commit(_state with { Votes = kept });
+        }
+    }
+
     private VotingItemIdentity RequireItem(Guid userId, Guid itemId) =>
         (itemId == Guid.Empty ? null : library.ResolveItem(userId, itemId))
         ?? throw new RemovalException("Media not found.", 404);

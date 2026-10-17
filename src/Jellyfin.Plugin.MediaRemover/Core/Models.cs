@@ -8,6 +8,8 @@ public sealed record SeriesDetail(Guid Id, string Name, int? ProductionYear, int
 public sealed record SeriesRow(Guid Id, string Name, int? ProductionYear, int? TvdbId, int? TmdbId, int EpisodeCount,
     int? WatchedCount, int? InProgressCount, DateTime? LastPlayed, string? Status, IReadOnlyList<UserProgress> Users, string Type = "Series");
 public sealed record SeriesPage(IReadOnlyList<SeriesRow> Items, int TotalCount, int StartIndex);
+// Admin library columns. Name pages through Jellyfin; the others rank every matching item before paging.
+public enum ItemSort { Name, Watched, InProgress, Votes }
 public sealed record SeriesRequester(int Id, string Name, Guid? JellyfinUserId, int RequestCount,
     string WatchStatus, int? WatchedCount, int? EpisodeCount);
 public sealed record SeriesRequests(string State, string? Message, int RequestCount, int UnknownRequesterCount,
@@ -34,6 +36,7 @@ public interface ISeriesLibrary
     IReadOnlyList<LibraryUser> GetUsers();
     SeriesPage GetSeries(Guid userId, string? search, int startIndex, int limit);
     SeriesDetail GetSeries(Guid id);
-    SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit);
+    SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit, ItemSort sort, bool descending,
+        IReadOnlyDictionary<Guid, int> voteCounts);
     SeriesDetail GetItem(Guid id);
 }

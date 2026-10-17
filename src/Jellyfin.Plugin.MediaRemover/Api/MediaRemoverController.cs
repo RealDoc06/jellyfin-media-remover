@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Jellyfin.Plugin.MediaRemover.Core;
 using Jellyfin.Plugin.MediaRemover.Providers;
+using Jellyfin.Plugin.MediaRemover.Voting;
 using MediaBrowser.Common.Api;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +15,7 @@ namespace Jellyfin.Plugin.MediaRemover.Api;
 [Route("MediaRemover")]
 [TypeFilter(typeof(MediaRemoverExceptionFilter))]
 public sealed class MediaRemoverController(SettingsService settings, ISeriesLibrary library,
-    IProviderGateway providers, RemovalService removals, SeriesRequestService requests) : ControllerBase
+    IProviderGateway providers, RemovalService removals, SeriesRequestService requests, VotingService voting) : ControllerBase
 {
     internal static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -49,8 +50,9 @@ public sealed class MediaRemoverController(SettingsService settings, ISeriesLibr
         Json(await requests.GetAsync(id, ct).ConfigureAwait(false));
 
     [HttpGet("Items")]
-    public IActionResult GetItems([FromQuery] Guid userId, [FromQuery] string? search, [FromQuery] int startIndex = 0, [FromQuery] int limit = 25) =>
-        Json(library.GetItems(userId, search, startIndex, limit));
+    public IActionResult GetItems([FromQuery] Guid userId, [FromQuery] string? search, [FromQuery] int startIndex = 0, [FromQuery] int limit = 25,
+        [FromQuery] ItemSort sortBy = ItemSort.Name, [FromQuery] bool descending = false) =>
+        Json(library.GetItems(userId, search, startIndex, limit, sortBy, descending, voting.GetVoteCounts()));
 
     [HttpGet("Items/{id:guid}")]
     public IActionResult GetItem([FromRoute] Guid id) => Json(library.GetItem(id));
@@ -65,14 +67,21 @@ public sealed class MediaRemoverController(SettingsService settings, ISeriesLibr
 
     [HttpPost("Removals/{id:guid}/Execute")]
     public async Task<IActionResult> Execute([FromRoute] Guid id, [FromBody] Confirmation confirmation) =>
-        Json(PublicOperation(await removals.ExecuteAsync(OwnerId(), id, confirmation.ConfirmationTitle).ConfigureAwait(false)));
+        Json(PublicOperation(Settle(await removals.ExecuteAsync(OwnerId(), id, confirmation.ConfirmationTitle).ConfigureAwait(false))));
 
     [HttpPost("Removals/{id:guid}/Retry")]
     public async Task<IActionResult> Retry([FromRoute] Guid id, [FromBody] Confirmation confirmation) =>
-        Json(PublicOperation(await removals.RetryAsync(OwnerId(), id, confirmation.ConfirmationTitle).ConfigureAwait(false)));
+        Json(PublicOperation(Settle(await removals.RetryAsync(OwnerId(), id, confirmation.ConfirmationTitle).ConfigureAwait(false))));
 
     [HttpGet("Removals")]
     public async Task<IActionResult> History() => Json((await removals.GetHistoryAsync().ConfigureAwait(false)).Select(PublicOperation));
+
+    // A completed removal clears the votes that nominated the item.
+    private RemovalOperation Settle(RemovalOperation operation)
+    {
+        voting.SettleRemovals([operation]);
+        return operation;
+    }
 
     private Guid OwnerId()
     {

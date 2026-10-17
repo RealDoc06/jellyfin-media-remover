@@ -25,7 +25,15 @@ public sealed class ServiceRegistrator : IPluginServiceRegistrator
         services.AddSingleton<SeriesRequestService>();
         services.AddSingleton<IVotingLibrary, JellyfinVotingLibrary>();
         services.AddSingleton<IVoteStore>(_ => new VoteStore(Plugin.Instance.VotesPath));
-        services.AddSingleton<VotingService>();
+        services.AddSingleton(sp =>
+        {
+            var voting = ActivatorUtilities.CreateInstance<VotingService>(sp);
+            // Settle removals that completed before votes were cleared automatically. An unreadable
+            // journal or votes file must not take voting down; the next startup tries again.
+            try { voting.SettleRemovals(sp.GetRequiredService<OperationStore>().Load()); }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException) { }
+            return voting;
+        });
         services.AddTransient<IStartupFilter, VotingWebStartupFilter>();
     }
 }
