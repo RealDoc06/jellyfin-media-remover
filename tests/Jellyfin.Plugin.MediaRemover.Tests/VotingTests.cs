@@ -155,6 +155,30 @@ public sealed class VotingTests
     }
 
     [Fact]
+    public void CompletedRemovalsSettleEarlierVotesAndKeepLaterOnes()
+    {
+        var library = new Library();
+        var movie = library.AddItem("Movie");
+        var store = new MemoryStore();
+        var clock = new Clock();
+        var service = new VotingService(library, store, clock);
+        service.SetItemVote(library.Viewer.Id, movie.Id, true);
+        service.SetVote(library.Other.Id, library.Series.Id, true);
+        var removedAt = clock.Now;
+        clock.Now = clock.Now.AddHours(1);
+        service.SetItemVote(library.Other.Id, movie.Id, true);
+        var removals = new[] { Removal(movie.Id, "completed", removedAt), Removal(library.Series.Id, "partialFailure", clock.Now) };
+
+        service.SettleRemovals(removals);
+        Assert.Equal(library.Other.Id, Assert.Single(store.State.Votes, vote => vote.ItemId == movie.Id).UserId);
+        Assert.Single(store.State.Votes, vote => vote.ItemId == library.Series.Id);
+        Assert.Equal(1, service.GetItem(library.Viewer.Id, movie.Id).VoteCount);
+        var saves = store.SaveCount;
+        service.SettleRemovals(removals);
+        Assert.Equal(saves, store.SaveCount);
+    }
+
+    [Fact]
     public async Task ConcurrentVotesAreUniqueAndPersistWithoutLosingOtherUsers()
     {
         var library = new Library();
@@ -455,6 +479,10 @@ public sealed class VotingTests
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<VoteUpdate>("{\"approved\":null}", options));
         Assert.False(JsonSerializer.Deserialize<VoteUpdate>("{\"approved\":false}", options)!.Approved);
     }
+
+    private static RemovalOperation Removal(Guid itemId, string status, DateTimeOffset finishedAt) =>
+        new(Guid.NewGuid(), Guid.NewGuid(), "Example", "fingerprint", new(itemId, false, true, false, false),
+            null, null, status, true, true, null, finishedAt, finishedAt);
 
     private sealed class Clock : TimeProvider
     {

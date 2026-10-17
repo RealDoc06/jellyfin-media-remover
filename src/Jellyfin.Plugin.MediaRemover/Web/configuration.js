@@ -12,6 +12,8 @@ export default function (view) {
     let settingsDirty = false;
     let startIndex = 0;
     let totalCount = 0;
+    let sortBy = 'name';
+    let descending = false;
     let listVersion = 0;
     let detailVersion = 0;
     let detailRequestsVersion = 0;
@@ -393,6 +395,13 @@ export default function (view) {
         }
     }
 
+    function updateSortHeaders() {
+        view.querySelectorAll('[data-mr-sort]').forEach((target) => {
+            if (target.dataset.mrSort === sortBy) target.parentElement.setAttribute('aria-sort', descending ? 'descending' : 'ascending');
+            else target.parentElement.removeAttribute('aria-sort');
+        });
+    }
+
     function updatePagination(loading) {
         element('mrPrevious').disabled = loading || startIndex === 0;
         element('mrNext').disabled = loading || startIndex + pageSize >= totalCount;
@@ -408,7 +417,9 @@ export default function (view) {
             const result = await request('Items', 'GET', undefined, {
                 search: element('mrSearch').value.trim(),
                 startIndex,
-                limit: pageSize
+                limit: pageSize,
+                sortBy,
+                descending
             });
             if (version !== listVersion || destroyed) return;
             totalCount = result.totalCount;
@@ -664,7 +675,8 @@ export default function (view) {
             element('mrItemDetail').hidden = true;
             renderOperationStatus('mrRemovalStatus', operation);
             if (operation.status !== 'completed') element('mrHistorySection').open = true;
-            await Promise.all([loadHistory(), loadItems()]);
+            // A completed removal clears the item's votes on the server.
+            await Promise.all([loadHistory(), loadItems(), loadVotes()]);
         } catch (error) {
             // A lost response does not mean no provider changed. Require a fresh review or an audit retry.
             invalidatePreview();
@@ -777,7 +789,7 @@ export default function (view) {
             element('mrRetryConfirm').value = '';
             element('mrRetryForm').hidden = operation.status === 'completed';
             renderOperationStatus('mrRetryStatus', operation);
-            await Promise.all([loadHistory(), loadItems()]);
+            await Promise.all([loadHistory(), loadItems(), loadVotes()]);
         } catch (error) {
             element('mrRetryConfirm').value = '';
             status('mrRetryStatus', error.message + ' Refresh removal history before retrying.', 'error');
@@ -810,6 +822,14 @@ export default function (view) {
         startIndex = 0;
         loadItems();
     });
+    view.querySelectorAll('[data-mr-sort]').forEach((target) => target.addEventListener('click', () => {
+        // A new column starts with the most first for counts and A to Z for names; a repeat click reverses it.
+        descending = target.dataset.mrSort === sortBy ? !descending : target.dataset.mrSort !== 'name';
+        sortBy = target.dataset.mrSort;
+        startIndex = 0;
+        updateSortHeaders();
+        loadItems();
+    }));
     element('mrPrevious').addEventListener('click', () => { startIndex = Math.max(0, startIndex - pageSize); loadItems(); });
     element('mrNext').addEventListener('click', () => { startIndex += pageSize; loadItems(); });
     element('mrRefreshHistory').addEventListener('click', loadHistory);

@@ -208,7 +208,8 @@ public sealed class SeriesRequestServiceTests
 
         public SeriesDetail GetSeries(Guid id) => id == Series.Id && Series.Type == "Series" ? Series : throw new RemovalException("Unknown series", 404);
         public SeriesDetail GetItem(Guid id) => id == Series.Id ? Series : throw new RemovalException("Unknown item", 404);
-        public SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit) => throw new NotSupportedException();
+        public SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit, ItemSort sort, bool descending,
+            IReadOnlyDictionary<Guid, int> voteCounts) => throw new NotSupportedException();
         public IReadOnlyList<LibraryUser> GetUsers() => throw new NotSupportedException();
         public SeriesPage GetSeries(Guid userId, string? search, int startIndex, int limit) => throw new NotSupportedException();
     }

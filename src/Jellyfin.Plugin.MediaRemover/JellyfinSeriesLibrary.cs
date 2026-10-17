@@ -20,30 +20,58 @@ public sealed class JellyfinSeriesLibrary(ILibraryManager library, IUserManager 
     public SeriesPage GetSeries(Guid userId, string? search, int startIndex, int limit) =>
         GetPage(userId, search, startIndex, limit, [BaseItemKind.Series]);
 
-    public SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit) =>
-        GetPage(userId, search, startIndex, limit, [BaseItemKind.Series, BaseItemKind.Movie]);
+    public SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit, ItemSort sort, bool descending,
+        IReadOnlyDictionary<Guid, int> voteCounts) =>
+        GetPage(userId, search, startIndex, limit, [BaseItemKind.Series, BaseItemKind.Movie], sort, descending, voteCounts);
 
-    private SeriesPage GetPage(Guid userId, string? search, int startIndex, int limit, BaseItemKind[] types)
+    private SeriesPage GetPage(Guid userId, string? search, int startIndex, int limit, BaseItemKind[] types,
+        ItemSort sort = ItemSort.Name, bool descending = false, IReadOnlyDictionary<Guid, int>? voteCounts = null)
     {
         var accounts = users.GetUsers().OrderBy(u => u.Username).ToArray();
         if (userId != Guid.Empty && accounts.All(u => u.Id != userId)) throw new RemovalException("User not found.", 404);
         if (startIndex < 0 || limit is < 1 or > 100) throw new RemovalException("Invalid pagination. Limit must be between 1 and 100.");
-        var result = library.GetItemsResult(new InternalItemsQuery
+        if (!Enum.IsDefined(sort)) throw new RemovalException("Unknown sort column.");
+        var query = new InternalItemsQuery
         {
             IncludeItemTypes = types, Recursive = true, IsVirtualItem = false,
             SearchTerm = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
-            StartIndex = startIndex, Limit = limit, OrderBy = [(ItemSortBy.SortName, SortOrder.Ascending)]
-        });
-        var rows = result.Items.Select(item =>
+            OrderBy = [(ItemSortBy.SortName, sort == ItemSort.Name && descending ? SortOrder.Descending : SortOrder.Ascending)]
+        };
+        SeriesDetail[] details;
+        int total;
+        if (sort == ItemSort.Name)
         {
-            var detail = Detail(item, accounts);
+            query.StartIndex = startIndex;
+            query.Limit = limit;
+            var result = library.GetItemsResult(query);
+            details = result.Items.Select(item => Detail(item, accounts)).ToArray();
+            total = result.TotalRecordCount;
+        }
+        else
+        {
+            // Ranking happens before paging, so stable ordering keeps name order within ties.
+            // Vote ranking only needs IDs; progress ranking loads progress for every matching item.
+            var items = library.GetItemList(query);
+            total = items.Count;
+            var status = sort == ItemSort.Watched ? "watched" : "inProgress";
+            details = sort == ItemSort.Votes
+                ? Rank(items, item => voteCounts?.GetValueOrDefault(item.Id) ?? 0, descending)
+                    .Skip(startIndex).Take(limit).Select(item => Detail(item, accounts)).ToArray()
+                : Rank(items.Select(item => Detail(item, accounts)), detail => detail.Users.Count(u => u.Status == status), descending)
+                    .Skip(startIndex).Take(limit).ToArray();
+        }
+        var rows = details.Select(detail =>
+        {
             var selected = detail.Users.FirstOrDefault(p => p.Id == userId);
             return new SeriesRow(detail.Id, detail.Name, detail.ProductionYear, detail.TvdbId,
                 detail.TmdbId, detail.EpisodeCount, selected?.WatchedCount, selected?.InProgressCount,
                 selected?.LastPlayed, selected?.Status, detail.Users, detail.Type);
         }).ToArray();
-        return new(rows, result.TotalRecordCount, startIndex);
+        return new(rows, total, startIndex);
     }
+
+    private static IEnumerable<T> Rank<T>(IEnumerable<T> source, Func<T, int> key, bool descending) =>
+        descending ? source.OrderByDescending(key) : source.OrderBy(key);
 
     public SeriesDetail GetSeries(Guid id)
     {

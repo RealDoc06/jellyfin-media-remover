@@ -659,7 +659,8 @@ public sealed class RemovalServiceTests
         public SeriesPage GetSeries(Guid userId, string? search, int startIndex, int limit) => throw new NotSupportedException();
         public SeriesDetail GetSeries(Guid id) => Series is { Type: "Series" } series && series.Id == id
             ? series : throw new RemovalException("Series no longer exists.", 404);
-        public SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit) => throw new NotSupportedException();
+        public SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit, ItemSort sort, bool descending,
+            IReadOnlyDictionary<Guid, int> voteCounts) => throw new NotSupportedException();
         public SeriesDetail GetItem(Guid id) => Series is { } item && item.Id == id
             ? item : throw new RemovalException("Item no longer exists.", 404);
     }
