@@ -87,12 +87,26 @@
     font-size: .85em;
     margin-top: .15em;
 }
-.mr-voting-card [data-mr-vote] {
-    width: 100%;
+.mr-voting-actions {
+    display: flex;
+    gap: .4em;
+    margin-top: .5em;
+}
+.mr-voting-actions .emby-button {
     justify-content: center;
-    margin: .5em 0 0;
+    margin: 0;
     padding: .5em;
     font-size: .9em;
+}
+.mr-voting-card [data-mr-vote] {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.mr-voting-remove .material-icons {
+    font-size: 1.3em;
+}
+.mr-voting-remove[hidden] {
+    display: none;
 }
 .mr-voting-empty {
     grid-column: 1 / -1;
