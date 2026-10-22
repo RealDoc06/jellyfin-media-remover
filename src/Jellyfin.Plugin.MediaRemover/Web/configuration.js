@@ -860,8 +860,15 @@ export default function (view) {
         destroyed = false;
         Promise.all([loadSettings(), loadItems(), loadHistory(), loadVotes()]);
         // The voting cards' admin remove shortcut links here with &remove=<item id> to start that item's review.
-        const removeId = new URLSearchParams(window.location.hash.split('?')[1]).get('remove');
-        if (removeId) openReview(removeId, true);
+        // It is dropped from this history entry (keeping the router's state) so Back/Forward won't reopen it.
+        const [route, query] = window.location.hash.split('?');
+        const params = new URLSearchParams(query);
+        const removeId = params.get('remove');
+        if (removeId) {
+            params.delete('remove');
+            history.replaceState(history.state, '', route + '?' + params);
+            openReview(removeId, true);
+        }
     });
     view.addEventListener('viewhide', () => {
         if (reviewDialog.open) reviewDialog.close();
