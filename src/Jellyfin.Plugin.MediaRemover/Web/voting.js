@@ -95,6 +95,9 @@
         return labels[item.type] || 'Media';
     }
 
+    // Provider removal (Radarr/Sonarr/Seerr) only exists for these types.
+    const removableTypes = ['Movie', 'Series'];
+
     // Square art (albums, tracks) is letterboxed in the shared poster frame instead of cropped.
     const squareTypes = ['MusicAlbum', 'MusicArtist', 'Audio', 'AudioBook', 'Playlist'];
     const typeIcons = {
@@ -145,6 +148,8 @@
         toggle.setAttribute('aria-pressed', String(item.myVote));
         toggle.setAttribute('aria-label', (item.myVote ? 'Withdraw vote for ' : 'OK to delete ') + item.name);
         toggle.disabled = context.busy.has(item.id);
+        const remove = card.querySelector('[data-mr-remove]');
+        if (remove) remove.hidden = !context.isAdmin;
         card.classList.toggle('mr-voting-mine', item.myVote);
         const count = card.querySelector('[data-mr-vote-count]');
         count.textContent = item.voteCount + (item.voteCount === 1 ? ' vote' : ' votes');
@@ -164,9 +169,27 @@
         detail.title = detail.textContent;
         const toggle = button('', () => castVote(context, item, message));
         toggle.dataset.mrVote = '';
-        card.append(frame, name, detail, toggle);
+        const actions = node('div', undefined, 'mr-voting-actions');
+        actions.append(toggle);
+        if (removableTypes.includes(item.type)) actions.append(removeLink(item));
+        card.append(frame, name, detail, actions);
         updateCard(context, card, item);
         return card;
+    }
+
+    // Admin shortcut into the dashboard's removal review, which owns preview and title confirmation.
+    // Hidden until the account is known to be an administrator; the server enforces it regardless.
+    function removeLink(item) {
+        const link = node('a', undefined, 'emby-button raised mr-voting-remove');
+        link.href = '#/configurationpage?name=mediaremover&remove=' + encodeURIComponent(item.id);
+        link.dataset.mrRemove = '';
+        link.title = 'Remove from server';
+        link.setAttribute('aria-label', 'Remove ' + item.name + ' from server');
+        const icon = node('span', '', 'material-icons delete');
+        icon.setAttribute('aria-hidden', 'true');
+        link.append(icon);
+        link.hidden = true;
+        return link;
     }
 
     function updateVisibleRows(context) {
@@ -222,6 +245,16 @@
             }
         })();
         return context.preferenceTask;
+    }
+
+    // Only toggles the admin remove shortcut on cards; it stays hidden if the user can't be loaded.
+    async function loadAdmin(context) {
+        try {
+            const user = await context.api.getCurrentUser();
+            if (!isCurrent(context)) return;
+            context.isAdmin = Boolean(user?.Policy?.IsAdministrator);
+            updateVisibleRows(context);
+        } catch (_) { /* Keep the shortcut hidden. */ }
     }
 
     async function setHomeDismissed(context, dismissed, message) {
@@ -530,8 +563,9 @@
         if (current?.key !== session?.key) {
             resetSession();
             if (current) {
-                session = { ...current, preferences: null, preferenceTask: null, preferenceError: '', preferenceBusy: false, busy: new Set(), voteResults: new Map(), voteVersion: 0, home: null, nav: null, dialog: null };
+                session = { ...current, isAdmin: false, preferences: null, preferenceTask: null, preferenceError: '', preferenceBusy: false, busy: new Set(), voteResults: new Map(), voteVersion: 0, home: null, nav: null, dialog: null };
                 loadPreferences(session);
+                loadAdmin(session);
             }
         }
         if (!session) return;

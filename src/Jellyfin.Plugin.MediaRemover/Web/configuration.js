@@ -859,6 +859,9 @@ export default function (view) {
     view.addEventListener('viewshow', () => {
         destroyed = false;
         Promise.all([loadSettings(), loadItems(), loadHistory(), loadVotes()]);
+        // The voting cards' admin remove shortcut links here with &remove=<item id> to start that item's review.
+        const removeId = new URLSearchParams(window.location.hash.split('?')[1]).get('remove');
+        if (removeId) openReview(removeId, true);
     });
     view.addEventListener('viewhide', () => {
         if (reviewDialog.open) reviewDialog.close();
