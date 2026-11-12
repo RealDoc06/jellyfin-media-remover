@@ -3,6 +3,8 @@
 
 import argparse
 import json
+import shutil
+import time
 from urllib.parse import parse_qs, urlsplit
 
 import integration
@@ -10,17 +12,35 @@ from integration import JELLYFIN, PROVIDERS, KEY, MOVIE_TITLE, MOVIE_TMDB, check
 from voting_integration import fixture_guard
 
 
-def run(auth):
-    fixture_guard(auth)
-    token = auth["adminToken"]
-    api = lambda path, **kwargs: request(JELLYFIN, "/MediaRemover/" + path, token=token, **kwargs)
-    native = request(JELLYFIN, "/Items?Recursive=true&IncludeItemTypes=Movie&Fields=ProviderIds", token=token)["Items"]
-    movie = next(item for item in native if item["Name"] == MOVIE_TITLE)
+DELETION_TITLE = "Jellyfin Deletion Test Movie"
+
+
+def find_movie(token, title, scan=False):
+    """Return the scanned movie, giving it the fixture TMDB ID. With scan, refresh the library until it appears."""
+    if scan:
+        request(JELLYFIN, "/Library/Refresh", "POST", token=token, expected=204)
+    deadline = time.monotonic() + 90
+    while True:
+        native = request(JELLYFIN, "/Items?Recursive=true&IncludeItemTypes=Movie&Fields=ProviderIds", token=token)["Items"]
+        movie = next((item for item in native if item["Name"] == title), None)
+        if movie or time.monotonic() > deadline:
+            break
+        time.sleep(1)
+    if movie is None:
+        raise RuntimeError(f"{title} was not found in the Jellyfin library.")
     # Only generated local media is used, with movie/TV IDs intentionally overlapping.
     if movie.get("ProviderIds", {}).get("Tmdb") != str(MOVIE_TMDB):
         metadata = request(JELLYFIN, "/Items/" + movie["Id"], token=token)
         metadata["ProviderIds"] = dict(metadata.get("ProviderIds", {}), Tmdb=str(MOVIE_TMDB))
         request(JELLYFIN, "/Items/" + movie["Id"], "POST", metadata, token, expected=204)
+    return movie
+
+
+def run(auth):
+    fixture_guard(auth)
+    token = auth["adminToken"]
+    api = lambda path, **kwargs: request(JELLYFIN, "/MediaRemover/" + path, token=token, **kwargs)
+    movie = find_movie(token, MOVIE_TITLE)
     for path in ["Items", "Items/" + movie["Id"], "Items/" + movie["Id"] + "/Requests"]:
         request(JELLYFIN, "/MediaRemover/" + path, expected=401)
         request(JELLYFIN, "/MediaRemover/" + path, token=auth["viewerToken"], expected=403)
@@ -63,8 +83,10 @@ def run(auth):
           "movie preview and incorrect title confirmation cannot delete anything")
     request(PROVIDERS, "/__control", "POST", {"failSeerrMovieDelete": True})
     operation = api("Removals/" + preview["id"] + "/Execute", method="POST", data={"confirmationTitle": MOVIE_TITLE})
-    check(operation["status"] == "partialFailure" and operation["radarrDone"] and not operation["seerrDone"],
-          "successful Radarr removal is checkpointed before a failed Seerr step")
+    check(operation["status"] == "partialFailure" and operation["radarrDone"] and operation["jellyfinDone"] and not operation["seerrDone"],
+          "successful Radarr and Jellyfin removals are checkpointed before a failed Seerr step")
+    api("Items/" + movie["Id"], expected=404)
+    check(True, "movie files deleted through Radarr also leave the Jellyfin library")
     state = request(PROVIDERS, "/__state")
     deletes = [entry for entry in state["requests"] if entry["method"] == "DELETE" and entry["path"].startswith("/radarr/")]
     check(len(deletes) == 1 and parse_qs(urlsplit(deletes[0]["path"]).query) == {"deleteFiles": ["true"], "addImportExclusion": ["true"]},
@@ -83,6 +105,9 @@ def run(auth):
           "retry completes Seerr without deleting Radarr twice")
     check(state["sonarrPresent"] and state["seerrPresent"] and not state["radarrPresent"] and not state["seerrMoviePresent"],
           "movie removal leaves the corresponding TV provider records untouched")
+    # The simulated Radarr never touched the files, so a scan restores the fixture movie with the same ID.
+    check(find_movie(token, MOVIE_TITLE, scan=True)["Id"] == movie["Id"], "library scan restores the fixture movie with its original ID")
+    request(JELLYFIN, f'/Users/{auth["viewerId"]}/PlayedItems/{movie["Id"]}', "POST", token=token)
 
     request(PROVIDERS, "/__control", "POST", {"reset": True, "wrongRadarrIdentity": True})
     api("Removals/Preview", method="POST", data=options, expected=502)
@@ -93,11 +118,36 @@ def run(auth):
     preview = api("Removals/Preview", method="POST", data=keep_files)
     operation = api("Removals/" + preview["id"] + "/Execute", method="POST", data={"confirmationTitle": MOVIE_TITLE})
     deletes = [entry for entry in request(PROVIDERS, "/__state")["requests"] if entry["method"] == "DELETE" and entry["path"].startswith("/radarr/")]
-    check(operation["status"] == "completed" and parse_qs(urlsplit(deletes[0]["path"]).query) == {"deleteFiles": ["false"], "addImportExclusion": ["false"]},
+    check(operation["status"] == "completed" and operation["jellyfinDone"] is None
+          and parse_qs(urlsplit(deletes[0]["path"]).query) == {"deleteFiles": ["false"], "addImportExclusion": ["false"]},
           "record-only movie removal explicitly keeps files")
-    request(PROVIDERS, "/__control", "POST", {"reset": True, "movieRequestRecords": request_records})
     check(request(JELLYFIN, f'/Users/{auth["viewerId"]}/Items/{movie["Id"]}', token=token)["UserData"]["Played"],
-          "provider fixture removals leave the synthetic movie and watched state intact")
+          "record-only removal leaves the movie and its watched state in Jellyfin")
+
+    # Radarr has no record (e.g. removed earlier with files kept): Jellyfin deletes the files itself.
+    # A dedicated copy in the writable media-extra mount is really deleted from disk.
+    folder = integration.DEV / "media-extra" / "movies" / (DELETION_TITLE + " (2026)")
+    folder.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(next((integration.DEV / "media").rglob("*.mkv")), folder / (DELETION_TITLE + ".mkv"))
+    (folder / "movie.nfo").write_text(f'<movie><title>{DELETION_TITLE}</title><year>2026</year><uniqueid type="tmdb" default="true">{MOVIE_TMDB}</uniqueid><lockdata>true</lockdata></movie>')
+    doomed = find_movie(token, DELETION_TITLE, scan=True)
+    request(PROVIDERS, "/__control", "POST", {"reset": True, "radarrPresent": False, "seerrMoviePresent": False})
+    preview = api("Removals/Preview", method="POST", data=dict(options, seriesId=doomed["Id"]))
+    check(preview["radarr"] is None and preview["seerr"] is None
+          and any("Jellyfin will delete the movie files from disk" in w for w in preview["warnings"]),
+          "file deletion without a Radarr record previews Jellyfin's own deletion with a warning")
+    api("Removals/" + preview["id"] + "/Execute", method="POST", data={"confirmationTitle": "wrong title"}, expected=400)
+    check((folder / (DELETION_TITLE + ".mkv")).exists(), "an incorrect title leaves the files on disk")
+    operation = api("Removals/" + preview["id"] + "/Execute", method="POST", data={"confirmationTitle": DELETION_TITLE})
+    check(operation["status"] == "completed" and operation["jellyfinDone"]
+          and not any(entry["method"] == "DELETE" for entry in request(PROVIDERS, "/__state")["requests"]),
+          "Jellyfin deletion completes without any provider deletion")
+    check(not (folder / (DELETION_TITLE + ".mkv")).exists() and not folder.exists(),
+          "Jellyfin deleted the movie folder from disk")
+    api("Items/" + doomed["Id"], expected=404)
+    check(DELETION_TITLE not in [i["Name"] for i in request(JELLYFIN, "/Items?Recursive=true&IncludeItemTypes=Movie", token=token)["Items"]],
+          "the deleted movie left the Jellyfin library")
+    request(PROVIDERS, "/__control", "POST", {"reset": True, "movieRequestRecords": request_records})
     print("Movie integration checks passed.", flush=True)
 
 

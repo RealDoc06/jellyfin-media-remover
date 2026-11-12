@@ -32,7 +32,7 @@ node --check src/Jellyfin.Plugin.MediaRemover/Web/voting.js
 The tests are in `tests/Jellyfin.Plugin.MediaRemover.Tests/`:
 
 - `ProviderGatewayTests.cs` and `SeerrRequestTests.cs`: URL base paths, credentials, exact identities, malformed data, redirects, timeouts, provider failures, and absent records.
-- `CoreTests.cs` and `SeriesRequestServiceTests.cs`: progress, linked requesters, previews, repeated confirmation, changed identities, partial failure, restart recovery, and journal errors.
+- `CoreTests.cs` and `SeriesRequestServiceTests.cs`: progress, linked requesters, previews, Jellyfin removal and fallback file deletion, repeated confirmation, changed identities, partial failure, restart recovery, and journal errors.
 - `VotingTests.cs` and `VotingStoreTests.cs`: nomination rules, visibility, ranking, duplicate votes, persistence, and unreadable storage.
 - `WebIntegrationTests.cs`: safe runtime injection, bounded buffering, and response handling.
 
@@ -60,7 +60,7 @@ python3 scripts/all_media_voting_integration.py --jellyfin 10.11.11
 python3 scripts/movie_integration.py --jellyfin 10.11.11
 ```
 
-`--prepare` generates movie/video files, silent music and audiobook files, an EPUB, photos, a collection, and public/private playlists. It also saves a vote/preference checkpoint. Movie tests require these fixtures.
+`--prepare` generates movie/video files, silent music and audiobook files, an EPUB, photos, a collection, and public/private playlists. It also saves a vote/preference checkpoint. Movie tests require these fixtures. The movie suite also generates a separate movie in the writable `media-extra` mount and checks that Jellyfin really deletes it from disk when Radarr has no record.
 
 For the second target, build with `-p:JellyfinVersion=12.1.0` and use `--jellyfin 12.1.0` on every integration command. Switching the version replaces only the dedicated test containers; it does not reuse an incompatible database.
 

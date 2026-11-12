@@ -57,22 +57,25 @@ public sealed class RemovalService
                 : await _providers.FindSeerrAsync(settings, item.TmdbId!.Value, ct).ConfigureAwait(false);
             if (!MatchesIdentity(item, sonarr, radarr, seerr))
                 throw new RemovalException("Provider identity conflicts with this Jellyfin item. Fix the provider mapping before removal.", 409);
-            if (sonarr is null && radarr is null && seerr is null)
+            // Without a manager record, Jellyfin deletes the files itself, so file deletion is never silently skipped.
+            var jellyfinDeletesFiles = options.DeleteFiles && sonarr is null && radarr is null;
+            if (sonarr is null && radarr is null && seerr is null && !options.DeleteFiles)
                 throw new RemovalException("No matching records exist in the selected providers.", 409);
             var warnings = new List<string>();
             if (item.Users.Any(u => u.Status != "watched")) warnings.Add(movie
                 ? "Some users have not watched this movie." : "Some users have not watched all available regular episodes.");
-            if (options.DeleteFiles) warnings.Add(movie
-                ? "Radarr will delete the movie and its files."
-                : "Sonarr will delete the entire series and its files, including specials and episodes outside this Jellyfin library.");
+            if (jellyfinDeletesFiles) warnings.Add(movie
+                ? "Radarr has no record of this movie. Jellyfin will delete the movie files from disk and remove it from the library."
+                : "Sonarr has no record of this series. Jellyfin will delete the entire series folder from disk, including specials, and remove it from the library.");
+            else if (options.DeleteFiles) warnings.Add(movie
+                ? "Radarr will delete the movie and its files, then the movie is removed from Jellyfin."
+                : "Sonarr will delete the entire series and its files, including specials and episodes outside this Jellyfin library, then the series is removed from Jellyfin.");
             else if (options.RemoveSonarr || options.RemoveRadarr)
                 warnings.Add($"Files will remain on disk and in Jellyfin. Only the {manager} record will be removed.");
             if (options.RemoveSeerr) warnings.Add("The Seerr media record and all its current requests will be cleared. Remaining files may be rediscovered on the next scan.");
             if (options.RemoveSonarr && sonarr is null) warnings.Add("No matching Sonarr record exists; this step will be skipped.");
             if (options.RemoveRadarr && radarr is null) warnings.Add("No matching Radarr record exists; this step will be skipped.");
             if (options.RemoveSeerr && seerr is null) warnings.Add("No matching Seerr record exists; this step will be skipped.");
-            if (options.DeleteFiles && sonarr is null && radarr is null)
-                throw new RemovalException($"Cannot delete files because the item is missing from {manager}.", 409);
             var preview = new RemovalPreview(Guid.NewGuid(), item.Id, item.Name, now.AddMinutes(10), options, sonarr, seerr, warnings, radarr);
             _previews.Add(preview.Id, (preview, owner, Fingerprint(settings)));
             return preview;
@@ -105,7 +108,8 @@ public sealed class RemovalService
             var now = _clock.GetUtcNow();
             var operation = new RemovalOperation(id, owner, current.Name, TargetsFingerprint(settings, entry.Preview.Options.MediaType), entry.Preview.Options,
                 entry.Preview.Sonarr, entry.Preview.Seerr, "running", entry.Preview.Sonarr is null,
-                entry.Preview.Seerr is null, null, now, now, entry.Preview.Radarr, entry.Preview.Radarr is null);
+                entry.Preview.Seerr is null, null, now, now, entry.Preview.Radarr, entry.Preview.Radarr is null,
+                entry.Preview.Options.DeleteFiles ? false : null);
             Save(operation);
             _previews.Remove(id);
             return await RunAsync(operation, settings).ConfigureAwait(false);
@@ -172,6 +176,18 @@ public sealed class RemovalService
                 operation = operation with { RadarrDone = true };
                 Save(operation);
             }
+            // Deleted files must also leave Jellyfin. After a manager deleted them, Jellyfin only drops the item;
+            // without a manager record, Jellyfin deletes the files itself. Runs before Seerr so failures stay retryable.
+            if (operation.JellyfinDone is false)
+            {
+                try { _library.DeleteItem(operation.Options.SeriesId, deleteFiles: operation.Sonarr is null && operation.Radarr is null); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new ProviderException("Jellyfin could not delete the files. Check that Jellyfin can write to the media folder, then retry.");
+                }
+                operation = operation with { JellyfinDone = true };
+                Save(operation);
+            }
             if (!operation.SeerrDone && operation.Seerr is { } seerr)
             {
                 await _providers.DeleteSeerrAsync(settings, seerr, CancellationToken.None).ConfigureAwait(false);
@@ -187,8 +203,8 @@ public sealed class RemovalService
         }
         operation = operation with { UpdatedAt = _clock.GetUtcNow() };
         Save(operation);
-        _logger.LogInformation("Media Remover operation {OperationId} by {AdminId}: {Status}, Sonarr complete: {SonarrDone}, Radarr complete: {RadarrDone}, Seerr complete: {SeerrDone}",
-            operation.Id, operation.OwnerId, operation.Status, operation.SonarrDone, operation.RadarrDone, operation.SeerrDone);
+        _logger.LogInformation("Media Remover operation {OperationId} by {AdminId}: {Status}, Sonarr complete: {SonarrDone}, Radarr complete: {RadarrDone}, Jellyfin complete: {JellyfinDone}, Seerr complete: {SeerrDone}",
+            operation.Id, operation.OwnerId, operation.Status, operation.SonarrDone, operation.RadarrDone, operation.JellyfinDone, operation.SeerrDone);
         return operation;
     }
 

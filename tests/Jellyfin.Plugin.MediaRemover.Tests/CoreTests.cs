@@ -127,16 +127,66 @@ public sealed class RemovalServiceTests
         Assert.Empty(await fixture.Service.GetHistoryAsync());
     }
 
+    [Theory]
+    [InlineData("Series", true)]
+    [InlineData("Series", false)]
+    [InlineData("Movie", true)]
+    public async Task MissingManagerRecordDeletesFilesThroughJellyfinBeforeSeerr(string type, bool seerr)
+    {
+        using var fixture = new Fixture();
+        var options = type == "Movie" ? fixture.MovieOptions() : fixture.Options;
+        fixture.Providers.Sonarr = null;
+        fixture.Providers.Radarr = null;
+        if (!seerr) fixture.Providers.Seerr = null;
+        fixture.Library.OnDelete = () => Assert.Empty(fixture.Providers.Deletions);
+
+        var preview = await fixture.Service.PreviewAsync(fixture.Owner, options, default);
+        Assert.Contains(preview.Warnings, warning => warning.Contains("Jellyfin will delete", StringComparison.Ordinal));
+        Assert.Empty(fixture.Library.Deleted);
+        var operation = await fixture.ExecuteAsync(preview);
+
+        Assert.Equal("completed", operation.Status);
+        Assert.True(operation.JellyfinDone);
+        Assert.Equal([(preview.SeriesId, true)], fixture.Library.Deleted);
+        Assert.Equal(seerr ? ["seerr"] : [], fixture.Providers.Deletions);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ManagerRemovalDropsJellyfinItemOnlyWhenItDeletedTheFiles(bool deleteFiles)
+    {
+        using var fixture = new Fixture();
+        var options = fixture.Options with { DeleteFiles = deleteFiles, AddImportListExclusion = false };
+
+        var preview = await fixture.Service.PreviewAsync(fixture.Owner, options, default);
+        var operation = await fixture.ExecuteAsync(preview);
+
+        Assert.Equal("completed", operation.Status);
+        Assert.Equal(deleteFiles ? true : null, operation.JellyfinDone);
+        Assert.Equal(deleteFiles ? [(preview.SeriesId, false)] : [], fixture.Library.Deleted);
+        Assert.Equal((deleteFiles, false), fixture.Providers.SonarrFlags);
+    }
+
     [Fact]
-    public async Task MissingSonarrCannotSilentlySkipRequestedFileDeletion()
+    public async Task FailedJellyfinDeletionStopsSeerrAndRetriesOnlyRemainingSteps()
     {
         using var fixture = new Fixture();
         fixture.Providers.Sonarr = null;
+        var preview = await fixture.PreviewAsync();
+        fixture.Library.OnDelete = () => throw new UnauthorizedAccessException("/tv/Example Series");
 
-        var error = await Assert.ThrowsAsync<RemovalException>(fixture.PreviewAsync);
+        var failed = await fixture.ExecuteAsync(preview);
 
-        Assert.Equal(409, error.StatusCode);
+        Assert.Equal("partialFailure", failed.Status);
+        Assert.False(failed.JellyfinDone);
+        Assert.Contains("Jellyfin could not delete the files", failed.Error, StringComparison.Ordinal);
         Assert.Empty(fixture.Providers.Deletions);
+        fixture.Library.OnDelete = null;
+        var completed = await fixture.NewService().RetryAsync(fixture.Owner, preview.Id, preview.Title);
+        Assert.Equal("completed", completed.Status);
+        Assert.Equal(2, fixture.Library.Deleted.Count);
+        Assert.Equal(["seerr"], fixture.Providers.Deletions);
     }
 
     [Fact]
@@ -254,6 +304,7 @@ public sealed class RemovalServiceTests
         Assert.All(results, result => Assert.Equal("completed", result.Status));
         Assert.Equal(results[0], results[1]);
         Assert.Equal(["sonarr", "seerr"], fixture.Providers.Deletions);
+        Assert.Equal([(preview.SeriesId, false)], fixture.Library.Deleted);
         Assert.Equal((true, true), fixture.Providers.SonarrFlags);
         Assert.Equal(preview.Sonarr, fixture.Providers.DeletedSonarr);
         Assert.Equal(preview.Seerr, fixture.Providers.DeletedSeerr);
@@ -506,14 +557,12 @@ public sealed class RemovalServiceTests
         Assert.Empty(fixture.Providers.Deletions);
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task MovieFileDeletionRequiresMatchedRadarrRecord(bool absent)
+    [Fact]
+    public async Task ConflictingRadarrIdentityFailsClosed()
     {
         using var fixture = new Fixture();
         var options = fixture.MovieOptions();
-        fixture.Providers.Radarr = absent ? null : fixture.Providers.Radarr! with { TmdbId = 999 };
+        fixture.Providers.Radarr = fixture.Providers.Radarr! with { TmdbId = 999 };
         var error = await Assert.ThrowsAsync<RemovalException>(() => fixture.Service.PreviewAsync(fixture.Owner, options, default));
         Assert.Equal(409, error.StatusCode);
         Assert.Empty(fixture.Providers.Deletions);
@@ -586,6 +635,7 @@ public sealed class RemovalServiceTests
         var operation = entries[0]!.AsObject();
         operation.Remove("radarr");
         operation.Remove("radarrDone");
+        operation.Remove("jellyfinDone");
         operation["status"] = "running";
         operation["options"]!.AsObject().Remove("removeRadarr");
         operation["options"]!.AsObject().Remove("mediaType");
@@ -602,7 +652,10 @@ public sealed class RemovalServiceTests
         Assert.False(loaded.Options.RemoveRadarr);
         Assert.True(loaded.RadarrDone);
         Assert.Null(loaded.Radarr);
+        Assert.Null(loaded.JellyfinDone);
+        fixture.Library.Deleted.Clear();
         Assert.Equal("completed", (await restarted.RetryAsync(fixture.Owner, preview.Id, preview.Title)).Status);
+        Assert.Empty(fixture.Library.Deleted);
         Assert.Equal(["sonarr", "seerr", "seerr"], fixture.Providers.Deletions);
     }
 
@@ -663,6 +716,15 @@ public sealed class RemovalServiceTests
             IReadOnlyDictionary<Guid, int> voteCounts) => throw new NotSupportedException();
         public SeriesDetail GetItem(Guid id) => Series is { } item && item.Id == id
             ? item : throw new RemovalException("Item no longer exists.", 404);
+
+        public List<(Guid Id, bool DeleteFiles)> Deleted { get; } = [];
+        public Action? OnDelete { get; set; }
+
+        public void DeleteItem(Guid id, bool deleteFiles)
+        {
+            Deleted.Add((id, deleteFiles));
+            OnDelete?.Invoke();
+        }
     }
 
     private sealed class FakeProviders : IProviderGateway

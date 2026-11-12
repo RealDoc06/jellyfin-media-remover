@@ -48,17 +48,19 @@ The plugin uses HTTP APIs rather than provider databases or direct filesystem ac
 
 A preview describes the exact provider records, path, and options to be used. It expires after ten minutes and belongs to the administrator who created it. Changing provider settings invalidates pending previews; changing removal options requires a new preview.
 
-Execution requires the exact title. The plugin rechecks provider identity and the Radarr/Sonarr path immediately before deletion. The selected media manager runs first; Seerr runs only after that step succeeds. Seerr-only cleanup is also supported.
+Execution requires the exact title. The plugin rechecks provider identity and the Radarr/Sonarr path immediately before deletion. The selected media manager runs first, then the Jellyfin step, then Seerr; each runs only after the previous one succeeds. Seerr-only cleanup is also supported.
 
-**Delete files is off by default.** With it disabled, provider records are removed but media remains playable in Jellyfin. Enabling it asks Radarr to delete the movie files or Sonarr to delete the **entire series**, including specials and episodes absent from the Jellyfin library.
+**Also delete files is on by default** whenever Radarr or Sonarr is selected. It asks Radarr to delete the movie files or Sonarr to delete the **entire series**, including specials and episodes absent from the Jellyfin library. The plugin then removes the item from Jellyfin, without touching files, so it does not linger until the next scan. Untick it to remove only provider records; the media then stays on disk and playable in Jellyfin.
 
-The media manager controls filesystem permissions, recycle-bin behavior, and file-deletion processing. Jellyfin reflects changes through realtime monitoring or a later library scan; the plugin never directly deletes Jellyfin database records.
+If file deletion is selected but Radarr/Sonarr has no matching record, for example because an earlier removal kept the files, **Jellyfin deletes the files itself**, the same way as its own **Delete media** action: the movie file (or its folder) or the entire series folder, including specials. The preview warns about this before confirmation. Jellyfin needs write access to the media folder; if the deletion fails, nothing is removed from the library and the step can be retried.
+
+The media manager controls filesystem permissions, recycle-bin behavior, and file-deletion processing for its own deletions. Jellyfin's fallback deletion does not use a recycle bin.
 
 Seerr cleanup uses `DELETE /api/v1/media/{id}` to clear the media record and its current requests. It does not call Seerr's separate file-deletion endpoint. Blocklisted media must first be unblocked in Seerr. If files remain, Seerr may rediscover them on a later scan. A Radarr/Sonarr import-list exclusion does not prevent future manual Seerr requests.
 
 ## Failures and recovery
 
-Provider APIs do not share a transaction. If one step fails after another succeeds, Removal history records the completed work. Retry requires the same administrator and title confirmation, rechecks identities, and skips completed steps. It can continue after a Jellyfin restart or after the media disappears from Jellyfin.
+Provider APIs do not share a transaction. If one step fails after another succeeds, Removal history records the completed work. Retry requires the same administrator and title confirmation, rechecks identities, and skips completed steps. It can continue after a Jellyfin restart or after the media disappears from Jellyfin; an item already gone from Jellyfin completes the Jellyfin step.
 
 API keys may be corrected or rotated for retry; provider URLs must still identify the original servers. If a provider reported an error after already deleting its record, retry reconciles the now-absent record. The plugin cannot undo deletions.
 

@@ -212,6 +212,7 @@ public sealed class SeriesRequestServiceTests
             IReadOnlyDictionary<Guid, int> voteCounts) => throw new NotSupportedException();
         public IReadOnlyList<LibraryUser> GetUsers() => throw new NotSupportedException();
         public SeriesPage GetSeries(Guid userId, string? search, int startIndex, int limit) => throw new NotSupportedException();
+        public void DeleteItem(Guid id, bool deleteFiles) => throw new NotSupportedException();
     }
 
     private sealed class Providers : IProviderGateway

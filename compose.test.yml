@@ -9,7 +9,8 @@ services:
       - ${JMR_TEST_DATA_DIR:?Use scripts/integration.py to select test data}/config:/config
       - ${JMR_TEST_DATA_DIR}/cache:/cache
       - ${JMR_TEST_DATA_DIR}/media:/media:ro
-      - ${JMR_TEST_DATA_DIR}/media-extra:/media-extra:ro
+      # Writable so the movie suite can verify Jellyfin's own file deletion on generated media.
+      - ${JMR_TEST_DATA_DIR}/media-extra:/media-extra
       # Jellyfin writes the plugin manifest next to the assembly on startup.
       - ${JMR_TEST_DATA_DIR}/plugin:/config/plugins/MediaRemover
     networks: [integration]

@@ -507,13 +507,14 @@ export default function (view) {
         element('mrRemoveRadarr').disabled = !radarr;
         element('mrRemoveSeerr').checked = seerr;
         element('mrRemoveSeerr').disabled = !seerr;
-        element('mrDeleteFiles').checked = false;
+        // Remove means remove: file deletion starts checked whenever the media manager is selected.
+        element('mrDeleteFiles').checked = sonarr || radarr;
         element('mrExclude').checked = false;
-        element('mrDeleteFilesLabel').textContent = 'Also delete ' + (movie ? 'movie' : 'series') + ' files through ' + manager;
+        element('mrDeleteFilesLabel').textContent = 'Also delete ' + (movie ? 'movie' : 'series') + ' files';
         element('mrExcludeLabel').textContent = 'Exclude from ' + manager + ' import lists';
         element('mrDeleteFilesDescription').textContent = movie
-            ? 'Deleting files removes the movie files through Radarr. Keeping files leaves them available to Jellyfin until you remove them separately.'
-            : 'Deleting files removes the entire Sonarr series folder, including specials and episodes absent from Jellyfin. Keeping files leaves them available to Jellyfin until you remove them separately.';
+            ? 'Radarr deletes the movie files, then the movie leaves Jellyfin. If Radarr has no record, Jellyfin deletes the files itself. Untick to keep the files on disk and in Jellyfin.'
+            : 'Sonarr deletes the entire series folder, including specials and episodes absent from Jellyfin, then the series leaves Jellyfin. If Sonarr has no record, Jellyfin deletes the series folder itself. Untick to keep the files on disk and in Jellyfin.';
         element('mrOptionsFields').disabled = removalBusy || !removalOptionsReady;
         status('mrProviderStatus', !settings
             ? 'Connections could not be loaded. Reload connections to remove this item.'
@@ -596,13 +597,15 @@ export default function (view) {
         if (value.options.removeSonarr) {
             addDefinition(target, 'Sonarr', value.sonarr ? value.sonarr.title + ' · Series ID ' + value.sonarr.id + ' · TVDB ' + value.sonarr.tvdbId : 'No matching series found');
             if (value.sonarr) addDefinition(target, 'Sonarr path', value.sonarr.path || 'Unknown');
-            addDefinition(target, 'Files', value.options.deleteFiles ? 'Delete all series files through Sonarr' : 'Keep series files');
+            addDefinition(target, 'Files', !value.options.deleteFiles ? 'Keep series files'
+                : value.sonarr ? 'Delete all series files through Sonarr, then remove from Jellyfin' : 'Jellyfin deletes the series folder from disk');
             addDefinition(target, 'Import lists', value.options.addImportListExclusion ? 'Add an import list exclusion' : 'Do not add an exclusion');
         }
         if (value.options.removeRadarr) {
             addDefinition(target, 'Radarr', value.radarr ? value.radarr.title + ' · Movie ID ' + value.radarr.id + ' · TMDB ' + value.radarr.tmdbId : 'No matching movie found');
             if (value.radarr) addDefinition(target, 'Radarr path', value.radarr.path || 'Unknown');
-            addDefinition(target, 'Files', value.options.deleteFiles ? 'Delete movie files through Radarr' : 'Keep movie files');
+            addDefinition(target, 'Files', !value.options.deleteFiles ? 'Keep movie files'
+                : value.radarr ? 'Delete movie files through Radarr, then remove from Jellyfin' : 'Jellyfin deletes the movie files from disk');
             addDefinition(target, 'Import lists', value.options.addImportListExclusion ? 'Add an import list exclusion' : 'Do not add an exclusion');
         }
         if (value.options.removeSeerr) {
@@ -692,13 +695,15 @@ export default function (view) {
         const steps = [];
         if (operation.options.removeSonarr) steps.push('Sonarr: ' + (operation.sonarrDone ? 'completed' : 'pending'));
         if (operation.options.removeRadarr) steps.push('Radarr: ' + (operation.radarrDone ? 'completed' : 'pending'));
+        // Null when the operation has no Jellyfin step (files kept, or recorded before 1.3.4).
+        if (operation.jellyfinDone != null) steps.push('Jellyfin: ' + (operation.jellyfinDone ? 'completed' : 'pending'));
         if (operation.options.removeSeerr) steps.push('Jellyseerr / Seerr: ' + (operation.seerrDone ? 'completed' : 'pending'));
         return steps.join('. ');
     }
 
     function renderOperationStatus(id, operation) {
         if (operation.status === 'completed') {
-            status(id, 'Removal completed. ' + operationSteps(operation) + '. Jellyfin may need a library scan to reflect deleted files.', 'success');
+            status(id, 'Removal completed. ' + operationSteps(operation) + '.', 'success');
         } else {
             status(id, 'Removal is incomplete. ' + operationSteps(operation) + '. ' + (operation.error || '') + ' Use removal history to retry the remaining steps.', 'error');
         }
@@ -759,6 +764,9 @@ export default function (view) {
             }
             addDefinition(details, 'Movie files', operation.options.deleteFiles ? 'Delete through Radarr' : 'Keep files');
             addDefinition(details, 'Import lists', operation.options.addImportListExclusion ? 'Add an exclusion' : 'Do not add an exclusion');
+        }
+        if (operation.jellyfinDone === false) {
+            addDefinition(details, 'Jellyfin', operation.sonarr || operation.radarr ? 'Remove from the library' : 'Delete files from disk and remove from the library');
         }
         if (operation.options.removeSeerr && !operation.seerrDone && operation.seerr) {
             addDefinition(details, 'Jellyseerr / Seerr', 'Media ID ' + operation.seerr.id + ' · TMDB ' + operation.seerr.tmdbId);
