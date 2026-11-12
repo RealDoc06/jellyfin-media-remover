@@ -99,6 +99,14 @@ public sealed class ProviderGatewayTests
     }
 
     [Fact]
+    public async Task RadarrRecordVanishingBeforeDeleteReportsNothingDeleted()
+    {
+        using var server = new StubServer(Json(MovieJson), Empty(HttpStatusCode.NotFound));
+        Assert.False(await server.Gateway.DeleteRadarrAsync(Options, Movie, true, true, CancellationToken.None));
+        Assert.Equal([HttpMethod.Get, HttpMethod.Delete], server.Requests.Select(r => r.Method));
+    }
+
+    [Fact]
     public async Task RadarrAlreadyRemovedSkipsDeletion()
     {
         using var server = new StubServer(Empty(HttpStatusCode.NotFound));
@@ -360,6 +368,14 @@ public sealed class ProviderGatewayTests
         using var server = new StubServer(Json(SeriesJson.Replace(before, after, StringComparison.Ordinal)));
         await Assert.ThrowsAsync<ProviderException>(() => server.Gateway.DeleteSonarrAsync(Options, Series, true, true, CancellationToken.None));
         Assert.Equal(HttpMethod.Get, Assert.Single(server.Requests).Method);
+    }
+
+    [Fact]
+    public async Task SonarrRecordVanishingBeforeDeleteReportsNothingDeleted()
+    {
+        using var server = new StubServer(Json(SeriesJson), Empty(HttpStatusCode.NotFound));
+        Assert.False(await server.Gateway.DeleteSonarrAsync(Options, Series, true, true, CancellationToken.None));
+        Assert.Equal([HttpMethod.Get, HttpMethod.Delete], server.Requests.Select(r => r.Method));
     }
 
     [Fact]

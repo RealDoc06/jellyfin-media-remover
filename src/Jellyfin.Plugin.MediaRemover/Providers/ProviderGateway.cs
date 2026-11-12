@@ -170,7 +170,8 @@ public sealed class ProviderGateway(IHttpClientFactory httpClientFactory) : IPro
         using var response = await SendAsync(Sonarr, options.SonarrUrl, options.SonarrApiKey, HttpMethod.Delete,
             $"api/v3/series/{Id(expected.Id)}?deleteFiles={Boolean(deleteFiles)}&addImportListExclusion={Boolean(addImportListExclusion)}",
             true, cancellationToken).ConfigureAwait(false);
-        return true;
+        // A 404 here means the record vanished after the GET, so nothing was deleted.
+        return response.StatusCode != HttpStatusCode.NotFound;
     }
 
     public async Task<bool> DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
@@ -199,7 +200,7 @@ public sealed class ProviderGateway(IHttpClientFactory httpClientFactory) : IPro
         using var response = await SendAsync(Radarr, options.RadarrUrl, options.RadarrApiKey, HttpMethod.Delete,
             $"api/v3/movie/{Id(expected.Id)}?deleteFiles={Boolean(deleteFiles)}&addImportExclusion={Boolean(addImportListExclusion)}",
             true, cancellationToken).ConfigureAwait(false);
-        return true;
+        return response.StatusCode != HttpStatusCode.NotFound;
     }
 
     public async Task DeleteSeerrAsync(ProviderOptions options, SeerrMedia expected, CancellationToken cancellationToken)
