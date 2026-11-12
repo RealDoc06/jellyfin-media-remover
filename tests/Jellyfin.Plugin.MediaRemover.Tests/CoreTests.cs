@@ -147,7 +147,7 @@ public sealed class RemovalServiceTests
 
         Assert.Equal("completed", operation.Status);
         Assert.True(operation.JellyfinDone);
-        Assert.Equal([(preview.SeriesId, true)], fixture.Library.Deleted);
+        Assert.Equal([preview.SeriesId], fixture.Library.Deleted);
         Assert.Equal(seerr ? ["seerr"] : [], fixture.Providers.Deletions);
     }
 
@@ -164,7 +164,7 @@ public sealed class RemovalServiceTests
 
         Assert.Equal("completed", operation.Status);
         Assert.Equal(deleteFiles ? true : null, operation.JellyfinDone);
-        Assert.Equal(deleteFiles ? [(preview.SeriesId, false)] : [], fixture.Library.Deleted);
+        Assert.Equal(deleteFiles ? [preview.SeriesId] : [], fixture.Library.Deleted);
         Assert.Equal((deleteFiles, false), fixture.Providers.SonarrFlags);
     }
 
@@ -174,13 +174,13 @@ public sealed class RemovalServiceTests
         using var fixture = new Fixture();
         fixture.Providers.Sonarr = null;
         var preview = await fixture.PreviewAsync();
-        fixture.Library.OnDelete = () => throw new UnauthorizedAccessException("/tv/Example Series");
+        fixture.Library.OnDelete = () => throw new InvalidOperationException("database is locked");
 
         var failed = await fixture.ExecuteAsync(preview);
 
         Assert.Equal("partialFailure", failed.Status);
         Assert.False(failed.JellyfinDone);
-        Assert.Contains("Jellyfin could not delete the files", failed.Error, StringComparison.Ordinal);
+        Assert.Contains("Jellyfin could not delete the item", failed.Error, StringComparison.Ordinal);
         Assert.Empty(fixture.Providers.Deletions);
         fixture.Library.OnDelete = null;
         var completed = await fixture.NewService().RetryAsync(fixture.Owner, preview.Id, preview.Title);
@@ -304,7 +304,7 @@ public sealed class RemovalServiceTests
         Assert.All(results, result => Assert.Equal("completed", result.Status));
         Assert.Equal(results[0], results[1]);
         Assert.Equal(["sonarr", "seerr"], fixture.Providers.Deletions);
-        Assert.Equal([(preview.SeriesId, false)], fixture.Library.Deleted);
+        Assert.Equal([preview.SeriesId], fixture.Library.Deleted);
         Assert.Equal((true, true), fixture.Providers.SonarrFlags);
         Assert.Equal(preview.Sonarr, fixture.Providers.DeletedSonarr);
         Assert.Equal(preview.Seerr, fixture.Providers.DeletedSeerr);
@@ -717,12 +717,12 @@ public sealed class RemovalServiceTests
         public SeriesDetail GetItem(Guid id) => Series is { } item && item.Id == id
             ? item : throw new RemovalException("Item no longer exists.", 404);
 
-        public List<(Guid Id, bool DeleteFiles)> Deleted { get; } = [];
+        public List<Guid> Deleted { get; } = [];
         public Action? OnDelete { get; set; }
 
-        public void DeleteItem(Guid id, bool deleteFiles)
+        public void DeleteItem(Guid id)
         {
-            Deleted.Add((id, deleteFiles));
+            Deleted.Add(id);
             OnDelete?.Invoke();
         }
     }

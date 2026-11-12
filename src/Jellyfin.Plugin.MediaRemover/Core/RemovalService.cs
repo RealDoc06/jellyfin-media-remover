@@ -176,14 +176,15 @@ public sealed class RemovalService
                 operation = operation with { RadarrDone = true };
                 Save(operation);
             }
-            // Deleted files must also leave Jellyfin. After a manager deleted them, Jellyfin only drops the item;
-            // without a manager record, Jellyfin deletes the files itself. Runs before Seerr so failures stay retryable.
+            // Deleted files must also leave Jellyfin. Jellyfin deletes whatever the manager left on disk (everything
+            // when no manager record exists, e.g. the record vanished after preview), then drops the item.
+            // Runs before Seerr so failures stay retryable.
             if (operation.JellyfinDone is false)
             {
-                try { _library.DeleteItem(operation.Options.SeriesId, deleteFiles: operation.Sonarr is null && operation.Radarr is null); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                try { _library.DeleteItem(operation.Options.SeriesId); }
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    throw new ProviderException("Jellyfin could not delete the files. Check that Jellyfin can write to the media folder, then retry.");
+                    throw new ProviderException("Jellyfin could not delete the item. Check that Jellyfin can write to the media folder and see the Jellyfin log, then retry.");
                 }
                 operation = operation with { JellyfinDone = true };
                 Save(operation);

@@ -22,10 +22,11 @@ public sealed record RemovalPreview(Guid Id, Guid SeriesId, string Title, DateTi
 
 // Journal entries contain identities and outcomes, never provider credentials.
 // JellyfinDone is null when the operation has no Jellyfin step: files were kept, or it was journaled before 1.3.4.
+// JellyfinDeletesFiles is set when Radarr/Sonarr had no record to delete the files with, so Jellyfin deletes them.
 public sealed record RemovalOperation(Guid Id, Guid OwnerId, string Title, string SettingsFingerprint,
     RemovalOptions Options, SonarrSeries? Sonarr, SeerrMedia? Seerr, string Status,
     bool SonarrDone, bool SeerrDone, string? Error, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
-    RadarrMovie? Radarr = null, bool RadarrDone = true, bool? JellyfinDone = null);
+    RadarrMovie? Radarr = null, bool RadarrDone = true, bool? JellyfinDone = null, bool JellyfinDeletesFiles = false);
 
 public sealed class RemovalException(string message, int statusCode = 400) : Exception(message)
 {
@@ -40,7 +41,7 @@ public interface ISeriesLibrary
     SeriesPage GetItems(Guid userId, string? search, int startIndex, int limit, ItemSort sort, bool descending,
         IReadOnlyDictionary<Guid, int> voteCounts);
     SeriesDetail GetItem(Guid id);
-    // Removes a movie or series from Jellyfin, deleting its files from disk first when deleteFiles is set.
-    // An item that is already gone counts as removed, so retries are safe.
-    void DeleteItem(Guid id, bool deleteFiles);
+    // Deletes whatever remains of a movie's or series' files from disk, then removes it from Jellyfin.
+    // Paths that are already gone are skipped and a missing item counts as removed, so retries are safe.
+    void DeleteItem(Guid id);
 }
