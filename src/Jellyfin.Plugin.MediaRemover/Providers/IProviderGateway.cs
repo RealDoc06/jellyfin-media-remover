@@ -14,10 +14,9 @@ public interface IProviderGateway
 
     Task<SeerrRequestInfo?> GetSeerrMovieRequestsAsync(ProviderOptions options, int tmdbId, CancellationToken cancellationToken);
 
-    // The manager deletes return false when the record was already gone, so nothing was deleted.
-    Task<bool> DeleteSonarrAsync(ProviderOptions options, SonarrSeries expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken);
+    Task DeleteSonarrAsync(ProviderOptions options, SonarrSeries expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken);
 
-    Task<bool> DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken);
+    Task DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken);
 
     Task DeleteSeerrAsync(ProviderOptions options, SeerrMedia expected, CancellationToken cancellationToken);
 
