@@ -86,12 +86,12 @@ public sealed class JellyfinSeriesLibrary(ILibraryManager library, IUserManager 
         return Detail(item, users.GetUsers().OrderBy(u => u.Username).ToArray());
     }
 
-    // Same call as Jellyfin's own Delete media action. Missing paths are skipped, and it throws before
-    // touching the database when the main path cannot be deleted, so a failure leaves the item for a retry.
-    public void DeleteItem(Guid id)
+    // Same call as Jellyfin's own Delete media action. It throws before touching the database
+    // when the main path cannot be deleted, so a failure leaves the item in place for a retry.
+    public void DeleteItem(Guid id, bool deleteFiles)
     {
         if (library.GetItemById(id) is BaseItem item and (Series or Movie))
-            library.DeleteItem(item, new DeleteOptions { DeleteFileLocation = true }, notifyParentItem: true);
+            library.DeleteItem(item, new DeleteOptions { DeleteFileLocation = deleteFiles }, notifyParentItem: true);
     }
 
     private SeriesDetail Detail(BaseItem item, User[] accounts)

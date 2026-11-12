@@ -212,7 +212,7 @@ public sealed class SeriesRequestServiceTests
             IReadOnlyDictionary<Guid, int> voteCounts) => throw new NotSupportedException();
         public IReadOnlyList<LibraryUser> GetUsers() => throw new NotSupportedException();
         public SeriesPage GetSeries(Guid userId, string? search, int startIndex, int limit) => throw new NotSupportedException();
-        public void DeleteItem(Guid id) => throw new NotSupportedException();
+        public void DeleteItem(Guid id, bool deleteFiles) => throw new NotSupportedException();
     }
 
     private sealed class Providers : IProviderGateway
@@ -235,11 +235,11 @@ public sealed class SeriesRequestServiceTests
         }
         public Task<RadarrMovie?> FindRadarrAsync(ProviderOptions options, int tmdbId, CancellationToken ct) => throw new NotSupportedException();
         public Task<SeerrMedia?> FindSeerrMovieAsync(ProviderOptions options, int tmdbId, CancellationToken ct) => throw new NotSupportedException();
-        public Task DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken ct) => throw new NotSupportedException();
+        public Task<bool> DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken ct) => throw new NotSupportedException();
         public Task TestRadarrAsync(ProviderOptions options, CancellationToken ct) => throw new NotSupportedException();
         public Task<SonarrSeries?> FindSonarrAsync(ProviderOptions options, int tvdbId, CancellationToken ct) => throw new NotSupportedException();
         public Task<SeerrMedia?> FindSeerrAsync(ProviderOptions options, int tmdbId, CancellationToken ct) => throw new NotSupportedException();
-        public Task DeleteSonarrAsync(ProviderOptions options, SonarrSeries expected, bool deleteFiles, bool addImportListExclusion, CancellationToken ct) => throw new NotSupportedException();
+        public Task<bool> DeleteSonarrAsync(ProviderOptions options, SonarrSeries expected, bool deleteFiles, bool addImportListExclusion, CancellationToken ct) => throw new NotSupportedException();
         public Task DeleteSeerrAsync(ProviderOptions options, SeerrMedia expected, CancellationToken ct) => throw new NotSupportedException();
         public Task TestSonarrAsync(ProviderOptions options, CancellationToken ct) => throw new NotSupportedException();
         public Task TestSeerrAsync(ProviderOptions options, CancellationToken ct) => throw new NotSupportedException();

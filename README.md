@@ -109,7 +109,7 @@ For movies, “watched” means the movie is marked played in Jellyfin. For seri
 
 Matching uses external IDs: TMDB for Radarr movies, TVDB for Sonarr series, and TMDB plus media type for Seerr. Names are never used to guess a provider record. A missing or conflicting identity stops removal.
 
-Radarr or Sonarr runs first, then Jellyfin, then Seerr. If a step fails, **Removal history** preserves the result and offers a retry that skips completed steps. Seerr cleanup removes the media record and its requests. Radarr/Sonarr delete the files, then Jellyfin deletes anything left on disk and removes the item. If Radarr/Sonarr has no record of the item, for example after an earlier removal that kept files, Jellyfin deletes the files itself; the preview warns before this happens.
+Radarr or Sonarr runs first, then Jellyfin, then Seerr. If a step fails, **Removal history** preserves the result and offers a retry that skips completed steps. Seerr cleanup removes the media record and its requests. Radarr/Sonarr delete the files, then the item is removed from Jellyfin. If Radarr/Sonarr has no record of the item, for example after an earlier removal that kept files, Jellyfin deletes the files itself; the preview warns before this happens.
 
 [Full behavior, progress definitions, and recovery details →](docs/how-it-works.md)
 

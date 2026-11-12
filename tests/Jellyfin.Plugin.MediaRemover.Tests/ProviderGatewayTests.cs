@@ -72,7 +72,7 @@ public sealed class ProviderGatewayTests
     public async Task RadarrDeletionRevalidatesIdentityAndUsesItsOwnExclusionParameter(bool deleteFiles, bool exclude)
     {
         using var server = new StubServer(Json(MovieJson), Empty(HttpStatusCode.NoContent));
-        await server.Gateway.DeleteRadarrAsync(Options, Movie, deleteFiles, exclude, CancellationToken.None);
+        Assert.True(await server.Gateway.DeleteRadarrAsync(Options, Movie, deleteFiles, exclude, CancellationToken.None));
         Assert.Collection(server.Requests,
             request =>
             {
@@ -102,7 +102,7 @@ public sealed class ProviderGatewayTests
     public async Task RadarrAlreadyRemovedSkipsDeletion()
     {
         using var server = new StubServer(Empty(HttpStatusCode.NotFound));
-        await server.Gateway.DeleteRadarrAsync(Options, Movie, true, true, CancellationToken.None);
+        Assert.False(await server.Gateway.DeleteRadarrAsync(Options, Movie, true, true, CancellationToken.None));
         Assert.Equal(HttpMethod.Get, Assert.Single(server.Requests).Method);
     }
 
@@ -335,7 +335,7 @@ public sealed class ProviderGatewayTests
     public async Task SonarrDeletionRevalidatesIdentityAndSendsExplicitOptions(bool deleteFiles, bool exclude, string filesQuery, string excludeQuery)
     {
         using var server = new StubServer(Json(SeriesJson), Empty(HttpStatusCode.NoContent));
-        await server.Gateway.DeleteSonarrAsync(Options, Series, deleteFiles, exclude, CancellationToken.None);
+        Assert.True(await server.Gateway.DeleteSonarrAsync(Options, Series, deleteFiles, exclude, CancellationToken.None));
 
         Assert.Collection(server.Requests,
             request =>
@@ -366,7 +366,7 @@ public sealed class ProviderGatewayTests
     public async Task SonarrAlreadyRemovedSkipsDeletion()
     {
         using var server = new StubServer(Empty(HttpStatusCode.NotFound));
-        await server.Gateway.DeleteSonarrAsync(Options, Series, true, true, CancellationToken.None);
+        Assert.False(await server.Gateway.DeleteSonarrAsync(Options, Series, true, true, CancellationToken.None));
         Assert.Equal(HttpMethod.Get, Assert.Single(server.Requests).Method);
     }
 

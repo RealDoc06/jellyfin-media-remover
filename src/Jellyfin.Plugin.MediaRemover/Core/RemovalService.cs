@@ -109,7 +109,8 @@ public sealed class RemovalService
             var operation = new RemovalOperation(id, owner, current.Name, TargetsFingerprint(settings, entry.Preview.Options.MediaType), entry.Preview.Options,
                 entry.Preview.Sonarr, entry.Preview.Seerr, "running", entry.Preview.Sonarr is null,
                 entry.Preview.Seerr is null, null, now, now, entry.Preview.Radarr, entry.Preview.Radarr is null,
-                entry.Preview.Options.DeleteFiles ? false : null);
+                JellyfinDone: entry.Preview.Options.DeleteFiles ? false : null,
+                JellyfinDeletesFiles: entry.Preview.Options.DeleteFiles && entry.Preview.Sonarr is null && entry.Preview.Radarr is null);
             Save(operation);
             _previews.Remove(id);
             return await RunAsync(operation, settings).ConfigureAwait(false);
@@ -164,24 +165,25 @@ public sealed class RemovalService
             // Do not tie mutations to an HTTP client's lifetime: every successful step must be journaled.
             if (!operation.SonarrDone && operation.Sonarr is { } sonarr)
             {
-                await _providers.DeleteSonarrAsync(settings, sonarr, operation.Options.DeleteFiles,
+                var deleted = await _providers.DeleteSonarrAsync(settings, sonarr, operation.Options.DeleteFiles,
                     operation.Options.AddImportListExclusion, CancellationToken.None).ConfigureAwait(false);
-                operation = operation with { SonarrDone = true };
+                operation = operation with { SonarrDone = true, JellyfinDeletesFiles = operation.JellyfinDeletesFiles || operation.Options.DeleteFiles && !deleted };
                 Save(operation);
             }
             if (!operation.RadarrDone && operation.Radarr is { } radarr)
             {
-                await _providers.DeleteRadarrAsync(settings, radarr, operation.Options.DeleteFiles,
+                var deleted = await _providers.DeleteRadarrAsync(settings, radarr, operation.Options.DeleteFiles,
                     operation.Options.AddImportListExclusion, CancellationToken.None).ConfigureAwait(false);
-                operation = operation with { RadarrDone = true };
+                operation = operation with { RadarrDone = true, JellyfinDeletesFiles = operation.JellyfinDeletesFiles || operation.Options.DeleteFiles && !deleted };
                 Save(operation);
             }
-            // Deleted files must also leave Jellyfin. Jellyfin deletes whatever the manager left on disk (everything
-            // when no manager record exists, e.g. the record vanished after preview), then drops the item.
-            // Runs before Seerr so failures stay retryable.
+            // Deleted files must also leave Jellyfin. After a manager deleted them, Jellyfin only drops the item: managers
+            // delete asynchronously (and may use a recycle bin), and Jellyfin's media mount may be read-only.
+            // If the manager had no record, at preview or by deletion time, Jellyfin deletes the files itself.
+            // Runs before Seerr; any failure becomes a retryable partial failure.
             if (operation.JellyfinDone is false)
             {
-                try { _library.DeleteItem(operation.Options.SeriesId); }
+                try { _library.DeleteItem(operation.Options.SeriesId, operation.JellyfinDeletesFiles); }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     throw new ProviderException("Jellyfin could not delete the item. Check that Jellyfin can write to the media folder and see the Jellyfin log, then retry.");

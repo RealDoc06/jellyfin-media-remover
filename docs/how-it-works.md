@@ -50,7 +50,7 @@ A preview describes the exact provider records, path, and options to be used. It
 
 Execution requires the exact title. The plugin rechecks provider identity and the Radarr/Sonarr path immediately before deletion. The selected media manager runs first, then the Jellyfin step, then Seerr; each runs only after the previous one succeeds. Seerr-only cleanup is also supported.
 
-**Also delete files is on by default** whenever Radarr or Sonarr is selected. It asks Radarr to delete the movie files or Sonarr to delete the **entire series**, including specials and episodes absent from the Jellyfin library. Jellyfin then deletes anything still on disk and removes the item, so it does not linger until the next scan. Untick it to remove only provider records; the media then stays on disk and playable in Jellyfin.
+**Also delete files is on by default** whenever Radarr or Sonarr is selected. It asks Radarr to delete the movie files or Sonarr to delete the **entire series**, including specials and episodes absent from the Jellyfin library. The plugin then removes the item from Jellyfin without touching files, so it does not linger until the next scan. Untick it to remove only provider records; the media then stays on disk and playable in Jellyfin.
 
 If file deletion is selected but Radarr/Sonarr has no matching record, for example because an earlier removal kept the files or the record vanished after preview, **Jellyfin deletes the files itself**, the same way as its own **Delete media** action: the movie file (or its folder) or the entire series folder, including specials. The preview warns about this before confirmation. Jellyfin needs write access to the media folder; if the deletion fails, nothing is removed from the library and the step can be retried.
 

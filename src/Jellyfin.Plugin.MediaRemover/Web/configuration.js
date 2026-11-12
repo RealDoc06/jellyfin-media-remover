@@ -766,7 +766,7 @@ export default function (view) {
             addDefinition(details, 'Import lists', operation.options.addImportListExclusion ? 'Add an exclusion' : 'Do not add an exclusion');
         }
         if (operation.jellyfinDone === false) {
-            addDefinition(details, 'Jellyfin', 'Delete remaining files from disk and remove from the library');
+            addDefinition(details, 'Jellyfin', operation.jellyfinDeletesFiles ? 'Delete files from disk and remove from the library' : 'Remove from the library');
         }
         if (operation.options.removeSeerr && !operation.seerrDone && operation.seerr) {
             addDefinition(details, 'Jellyseerr / Seerr', 'Media ID ' + operation.seerr.id + ' · TMDB ' + operation.seerr.tmdbId);

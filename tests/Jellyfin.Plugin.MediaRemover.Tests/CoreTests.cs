@@ -147,7 +147,7 @@ public sealed class RemovalServiceTests
 
         Assert.Equal("completed", operation.Status);
         Assert.True(operation.JellyfinDone);
-        Assert.Equal([preview.SeriesId], fixture.Library.Deleted);
+        Assert.Equal([(preview.SeriesId, true)], fixture.Library.Deleted);
         Assert.Equal(seerr ? ["seerr"] : [], fixture.Providers.Deletions);
     }
 
@@ -164,8 +164,25 @@ public sealed class RemovalServiceTests
 
         Assert.Equal("completed", operation.Status);
         Assert.Equal(deleteFiles ? true : null, operation.JellyfinDone);
-        Assert.Equal(deleteFiles ? [preview.SeriesId] : [], fixture.Library.Deleted);
+        Assert.Equal(deleteFiles ? [(preview.SeriesId, false)] : [], fixture.Library.Deleted);
         Assert.Equal((deleteFiles, false), fixture.Providers.SonarrFlags);
+    }
+
+    [Theory]
+    [InlineData("Series")]
+    [InlineData("Movie")]
+    public async Task ManagerRecordGoneByDeletionTimeHandsFileDeletionToJellyfin(string type)
+    {
+        using var fixture = new Fixture();
+        var options = type == "Movie" ? fixture.MovieOptions() : fixture.Options;
+        var preview = await fixture.Service.PreviewAsync(fixture.Owner, options, default);
+        fixture.Providers.RecordGone = true;
+
+        var operation = await fixture.ExecuteAsync(preview);
+
+        Assert.Equal("completed", operation.Status);
+        Assert.True(operation.JellyfinDeletesFiles);
+        Assert.Equal([(preview.SeriesId, true)], fixture.Library.Deleted);
     }
 
     [Fact]
@@ -304,7 +321,7 @@ public sealed class RemovalServiceTests
         Assert.All(results, result => Assert.Equal("completed", result.Status));
         Assert.Equal(results[0], results[1]);
         Assert.Equal(["sonarr", "seerr"], fixture.Providers.Deletions);
-        Assert.Equal([preview.SeriesId], fixture.Library.Deleted);
+        Assert.Equal([(preview.SeriesId, false)], fixture.Library.Deleted);
         Assert.Equal((true, true), fixture.Providers.SonarrFlags);
         Assert.Equal(preview.Sonarr, fixture.Providers.DeletedSonarr);
         Assert.Equal(preview.Seerr, fixture.Providers.DeletedSeerr);
@@ -636,6 +653,7 @@ public sealed class RemovalServiceTests
         operation.Remove("radarr");
         operation.Remove("radarrDone");
         operation.Remove("jellyfinDone");
+        operation.Remove("jellyfinDeletesFiles");
         operation["status"] = "running";
         operation["options"]!.AsObject().Remove("removeRadarr");
         operation["options"]!.AsObject().Remove("mediaType");
@@ -717,12 +735,12 @@ public sealed class RemovalServiceTests
         public SeriesDetail GetItem(Guid id) => Series is { } item && item.Id == id
             ? item : throw new RemovalException("Item no longer exists.", 404);
 
-        public List<Guid> Deleted { get; } = [];
+        public List<(Guid Id, bool DeleteFiles)> Deleted { get; } = [];
         public Action? OnDelete { get; set; }
 
-        public void DeleteItem(Guid id)
+        public void DeleteItem(Guid id, bool deleteFiles)
         {
-            Deleted.Add(id);
+            Deleted.Add((id, deleteFiles));
             OnDelete?.Invoke();
         }
     }
@@ -774,21 +792,26 @@ public sealed class RemovalServiceTests
             return Task.FromResult(Seerr);
         }
 
-        public async Task DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
+        // Simulates the record disappearing from the manager between preview and deletion.
+        public bool RecordGone { get; set; }
+
+        public async Task<bool> DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
         {
             Assert.False(cancellationToken.CanBeCanceled);
             Deletions.Add("radarr");
             RadarrFlags = (deleteFiles, addImportListExclusion);
             if (OnRadarr is not null) await OnRadarr();
+            return !RecordGone;
         }
 
-        public async Task DeleteSonarrAsync(ProviderOptions options, SonarrSeries expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
+        public async Task<bool> DeleteSonarrAsync(ProviderOptions options, SonarrSeries expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
         {
             Assert.False(cancellationToken.CanBeCanceled);
             Deletions.Add("sonarr");
             DeletedSonarr = expected;
             SonarrFlags = (deleteFiles, addImportListExclusion);
             if (OnSonarr is not null) await OnSonarr();
+            return !RecordGone;
         }
 
         public async Task DeleteSeerrAsync(ProviderOptions options, SeerrMedia expected, CancellationToken cancellationToken)
