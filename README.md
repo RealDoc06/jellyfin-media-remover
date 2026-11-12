@@ -15,7 +15,7 @@ A Jellyfin plugin that brings deletion votes, viewing progress, request owners, 
 - **Voting that fits Jellyfin.** A dismissible poster row on Home, a searchable poster grid in the sidebar view, and an action in native media menus.
 - **Useful context for admins.** Request owners, each user's viewing progress, vote totals, voter names, and dates.
 - **Connected removal.** Movies through **Radarr + Jellyseerr / Seerr**; series through **Sonarr + Jellyseerr / Seerr**.
-- **A deliberate last step.** Review exact provider matches, choose whether to delete files, and type the title to confirm. Resume incomplete operations from removal history.
+- **A deliberate last step.** Review exact provider matches, keep or delete the files, and type the title to confirm. Resume incomplete operations from removal history.
 
 **Votes never delete media or change watched state.** There are no scheduled or automatic deletions.
 
@@ -102,14 +102,14 @@ For movies, “watched” means the movie is marked played in Jellyfin. For seri
 ### Admins confirm removal
 
 1. Select **Delete** to prepare a preview, or choose providers in **View** and click **Preview removal**.
-2. Review the provider records, IDs, and file path. **Delete files is off by default.**
+2. Review the provider records, IDs, and file path. **Also delete files is on by default** when Radarr or Sonarr is selected; untick it to keep the files on disk and in Jellyfin.
 3. Type the exact media title and confirm. Changing options requires a new preview.
 
 ![Removal preview with Radarr and Seerr targets and title confirmation](docs/screenshots/removal-preview.png)
 
 Matching uses external IDs: TMDB for Radarr movies, TVDB for Sonarr series, and TMDB plus media type for Seerr. Names are never used to guess a provider record. A missing or conflicting identity stops removal.
 
-Radarr or Sonarr runs first; Seerr cleanup follows after that step succeeds. If a later step fails, **Removal history** preserves the result and offers a retry that skips completed steps. Seerr cleanup removes the media record and its requests. File deletion is performed by Radarr/Sonarr, and Jellyfin picks up changes through monitoring or a library scan.
+Radarr or Sonarr runs first, then Jellyfin, then Seerr. If a step fails, **Removal history** preserves the result and offers a retry that skips completed steps. Seerr cleanup removes the media record and its requests. Radarr/Sonarr delete the files, then the item is removed from Jellyfin. If Radarr/Sonarr has no record of the item, for example after an earlier removal that kept files, Jellyfin deletes the files itself; the preview warns before this happens.
 
 [Full behavior, progress definitions, and recovery details →](docs/how-it-works.md)
 

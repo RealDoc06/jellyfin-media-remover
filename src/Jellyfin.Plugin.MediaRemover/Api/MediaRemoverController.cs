@@ -93,7 +93,7 @@ public sealed class MediaRemoverController(SettingsService settings, ISeriesLibr
 
     private static object PublicOperation(RemovalOperation o) => new
     {
-        o.Id, o.Title, o.Options, o.Sonarr, o.Seerr, o.Radarr, o.Status, o.SonarrDone, o.SeerrDone, o.RadarrDone,
+        o.Id, o.Title, o.Options, o.Sonarr, o.Seerr, o.Radarr, o.Status, o.SonarrDone, o.SeerrDone, o.RadarrDone, o.JellyfinDone, o.JellyfinDeletesFiles,
         o.Error, o.CreatedAt, o.UpdatedAt
     };
 

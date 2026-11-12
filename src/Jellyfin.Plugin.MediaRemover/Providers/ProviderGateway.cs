@@ -145,7 +145,7 @@ public sealed class ProviderGateway(IHttpClientFactory httpClientFactory) : IPro
         return new SeerrRequestInfo(identity.Id, identity.TmdbId, identity.TvdbId, requests);
     }
 
-    public async Task DeleteSonarrAsync(ProviderOptions options, SonarrSeries expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
+    public async Task<bool> DeleteSonarrAsync(ProviderOptions options, SonarrSeries expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
     {
         RequirePositiveId(expected.Id, Sonarr);
         RequirePositiveId(expected.TvdbId, Sonarr);
@@ -158,7 +158,7 @@ public sealed class ProviderGateway(IHttpClientFactory httpClientFactory) : IPro
             $"api/v3/series/{Id(expected.Id)}", true, cancellationToken).ConfigureAwait(false);
         if (json is null)
         {
-            return;
+            return false;
         }
 
         var current = ReadSonarr(json.RootElement);
@@ -170,9 +170,10 @@ public sealed class ProviderGateway(IHttpClientFactory httpClientFactory) : IPro
         using var response = await SendAsync(Sonarr, options.SonarrUrl, options.SonarrApiKey, HttpMethod.Delete,
             $"api/v3/series/{Id(expected.Id)}?deleteFiles={Boolean(deleteFiles)}&addImportListExclusion={Boolean(addImportListExclusion)}",
             true, cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
-    public async Task DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
+    public async Task<bool> DeleteRadarrAsync(ProviderOptions options, RadarrMovie expected, bool deleteFiles, bool addImportListExclusion, CancellationToken cancellationToken)
     {
         RequirePositiveId(expected.Id, Radarr);
         RequirePositiveId(expected.TmdbId, Radarr);
@@ -185,7 +186,7 @@ public sealed class ProviderGateway(IHttpClientFactory httpClientFactory) : IPro
             $"api/v3/movie/{Id(expected.Id)}", true, cancellationToken).ConfigureAwait(false);
         if (json is null)
         {
-            return;
+            return false;
         }
 
         var current = ReadRadarr(json.RootElement);
@@ -198,6 +199,7 @@ public sealed class ProviderGateway(IHttpClientFactory httpClientFactory) : IPro
         using var response = await SendAsync(Radarr, options.RadarrUrl, options.RadarrApiKey, HttpMethod.Delete,
             $"api/v3/movie/{Id(expected.Id)}?deleteFiles={Boolean(deleteFiles)}&addImportExclusion={Boolean(addImportListExclusion)}",
             true, cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     public async Task DeleteSeerrAsync(ProviderOptions options, SeerrMedia expected, CancellationToken cancellationToken)

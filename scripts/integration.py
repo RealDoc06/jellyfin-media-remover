@@ -174,15 +174,21 @@ def check(condition, message):
     print("PASS " + message, flush=True)
 
 
-def validate(auth):
+def set_progress(auth, episodes):
+    # The administrator watched every episode; the viewer watched only the first regular one.
     token = auth["adminToken"]
-    api = lambda path, **kwargs: request(JELLYFIN, "/MediaRemover/" + path, token=token, **kwargs)
-    series, episodes = create_library(auth)
     regular = sorted([e for e in episodes if e.get("ParentIndexNumber") == 1], key=lambda e: e["IndexNumber"])
     for item in episodes:
         request(JELLYFIN, f'/Users/{auth["viewerId"]}/PlayedItems/{item["Id"]}', "DELETE", token=token)
         request(JELLYFIN, f'/Users/{auth["adminId"]}/PlayedItems/{item["Id"]}', "POST", token=token)
     request(JELLYFIN, f'/Users/{auth["viewerId"]}/PlayedItems/{regular[0]["Id"]}', "POST", token=token)
+
+
+def validate(auth):
+    token = auth["adminToken"]
+    api = lambda path, **kwargs: request(JELLYFIN, "/MediaRemover/" + path, token=token, **kwargs)
+    series, episodes = create_library(auth)
+    set_progress(auth, episodes)
     request(JELLYFIN, "/MediaRemover/Settings", expected=401)
     request(JELLYFIN, "/MediaRemover/Settings", token=auth["viewerToken"], expected=403)
     request(JELLYFIN, f'/MediaRemover/Series/{series["Id"]}/Requests', expected=401)
@@ -228,8 +234,11 @@ def validate(auth):
     api("Removals/" + preview["id"] + "/Execute", method="POST", data={"confirmationTitle": "wrong title"}, expected=400)
     check(not any(e["method"] == "DELETE" for e in request(PROVIDERS, "/__state")["requests"]), "wrong confirmation title performs no deletion")
     operation = api("Removals/" + preview["id"] + "/Execute", method="POST", data={"confirmationTitle": TITLE})
-    check(operation["status"] == "partialFailure" and operation["sonarrDone"] and not operation["seerrDone"],
-          "partial provider failure is persisted with completed Sonarr checkpoint")
+    check(operation["status"] == "partialFailure" and operation["sonarrDone"] and operation["jellyfinDone"] and not operation["seerrDone"],
+          "partial provider failure is persisted with completed Sonarr and Jellyfin checkpoints")
+    api("Items/" + series["Id"], expected=404)
+    check(TITLE not in [i["Name"] for i in request(JELLYFIN, "/Items?Recursive=true&IncludeItemTypes=Series", token=token)["Items"]],
+          "series files deleted through Sonarr also leave the Jellyfin library")
     state = request(PROVIDERS, "/__state")
     sonarr_deletes = [e for e in state["requests"] if e["method"] == "DELETE" and e["path"].startswith("/sonarr/")]
     check(len(sonarr_deletes) == 1 and parse_qs(urlsplit(sonarr_deletes[0]["path"]).query) == {"deleteFiles": ["true"], "addImportListExclusion": ["true"]},
@@ -248,8 +257,16 @@ def validate(auth):
     check(sum(e["method"] == "DELETE" and e["path"].startswith("/sonarr/") for e in state["requests"]) == 1,
           "retry does not delete Sonarr twice")
     check(not any("/file" in e["path"] for e in state["requests"]), "Seerr removal never calls the independent file-deletion endpoint")
-    api("Removals/Preview", method="POST", data=options, expected=409)
-    check(True, "missing provider records cannot produce a destructive preview")
+    # The simulated Sonarr never touched the read-only files, so a scan restores the fixture with the same IDs.
+    series, episodes = create_library(auth)
+    set_progress(auth, episodes)
+    check(series["Id"].lower() == preview["seriesId"].replace("-", ""), "library scan restores the fixture series with its original ID")
+    api("Removals/Preview", method="POST", data=dict(options, deleteFiles=False, addImportListExclusion=False), expected=409)
+    check(True, "missing provider records cannot produce a record-only preview")
+    fallback = api("Removals/Preview", method="POST", data=options)
+    check(fallback["sonarr"] is None and fallback["seerr"] is None
+          and any("Jellyfin will delete the entire series folder" in w for w in fallback["warnings"]),
+          "file deletion without a Sonarr record previews Jellyfin's own deletion with a warning")
     request(PROVIDERS, "/__control", "POST", {"reset": True, "wrongSonarrIdentity": True})
     api("Removals/Preview", method="POST", data=options, expected=502)
     check(not any(e["method"] == "DELETE" for e in request(PROVIDERS, "/__state")["requests"]), "mismatched external identity fails closed")
