@@ -2,12 +2,12 @@
 
 ## Supported versions
 
-Only the current release line receives security fixes.
+Only the current release line receives security fixes, on the Jellyfin server versions the plugin is built for. This table moves with each minor release.
 
-| Version | Supported |
-| ------- | --------- |
-| 1.3.x   | Yes       |
-| < 1.3   | No        |
+| Plugin  | Jellyfin           | Supported |
+| ------- | ------------------ | --------- |
+| 1.3.x   | 10.11.x and 12.x   | Yes       |
+| < 1.3   | Any                | No        |
 
 ## Reporting a vulnerability
 
@@ -28,4 +28,7 @@ In scope:
 - The Media Remover plugin: its API endpoints, voting and removal logic, dashboard page, and the voting client injected into Jellyfin Web.
 - Its integrations with Radarr, Sonarr, and Jellyseerr / Seerr, including how provider URLs and API keys are stored, used, and exposed.
 
-Out of scope: vulnerabilities in Jellyfin, Radarr, Sonarr, or Seerr themselves. Report those to their own projects.
+Out of scope:
+
+- Vulnerabilities in Jellyfin, Radarr, Sonarr, or Seerr themselves. Report those to their own projects.
+- Anything that requires Jellyfin administrator access, such as setting provider URLs or API keys. Administrators are trusted by design.
