@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the current release line receives security fixes. Releases are built and tested against Jellyfin 10.11.11 and 12.1.0; other 10.11.x and 12.x servers are covered on a best effort basis. This table moves with each minor release.
+Only the current release line receives security fixes. Releases are built and tested against Jellyfin 10.11.11 and 12.1.0. Fixes ship in the 1.3.x line for any 10.11.x or 12.x server, but are only verified on those two builds. This table moves with each minor release.
 
 | Plugin  | Jellyfin (tested)    | Supported |
 | ------- | -------------------- | --------- |
